@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:meeting_app/src/features/home/presentation/screens/home_screen.dart';
+import 'package:meeting_app/src/features/meeting/presentation/screens/create_meeting_screen.dart';
 import 'package:meeting_app/src/features/meeting/presentation/screens/meeting_list_screen.dart';
 
 part 'app_router.g.dart';
@@ -15,7 +17,19 @@ GoRouter goRouter(Ref ref) {
       GoRoute(
         path: '/',
         builder: (BuildContext context, GoRouterState state) {
+          return const HomeScreen();
+        },
+      ),
+      GoRoute(
+        path: '/meetings',
+        builder: (BuildContext context, GoRouterState state) {
           return const MeetingListScreen();
+        },
+      ),
+       GoRoute(
+        path: '/create-meeting',
+        builder: (BuildContext context, GoRouterState state) {
+          return const CreateMeetingScreen();
         },
       ),
       // Exemple de route avec paramètre
