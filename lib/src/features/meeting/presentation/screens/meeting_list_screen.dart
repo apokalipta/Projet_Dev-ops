@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:meeting_app/src/features/meeting/presentation/providers/meeting_provider.dart';
 import 'package:meeting_app/src/features/meeting/presentation/widgets/meeting_card.dart';
 
@@ -8,7 +9,6 @@ class MeetingListScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // Écoute le provider d'état asynchrone
     final meetingsAsync = ref.watch(asyncMeetingProvider);
 
     return Scaffold(
@@ -18,24 +18,18 @@ class MeetingListScreen extends ConsumerWidget {
           IconButton(
             icon: const Icon(Icons.add),
             onPressed: () {
-              // TODO: Naviguer vers l'écran de création de réunion
-              // ref.read(asyncMeetingProvider.notifier).createMeeting(...);
+              context.push('/create-meeting');
             },
           ),
         ],
       ),
       body: RefreshIndicator(
-        // Gère le "Pull-to-Refresh"
-        onRefresh: () {
-          return ref.read(asyncMeetingProvider.notifier).refreshMeetings();
-        },
-        // Gère les 3 états de l'AsyncValue (data, loading, error)
+        onRefresh: () => ref.read(asyncMeetingProvider.notifier).refreshMeetings(),
         child: meetingsAsync.when(
           data: (meetings) {
             if (meetings.isEmpty) {
               return const Center(child: Text('Aucune réunion pour le moment.'));
             }
-            // Affiche la liste
             return ListView.builder(
               itemCount: meetings.length,
               itemBuilder: (context, index) {
@@ -44,38 +38,58 @@ class MeetingListScreen extends ConsumerWidget {
                   meeting: meeting,
                   onTap: () {
                     // TODO: Naviguer vers les détails de la réunion
-                    // context.go('/meetings/${meeting.id}');
                   },
                   onDelete: () {
-                    // TODO: Confirmer la suppression
-                    ref.read(asyncMeetingProvider.notifier).deleteMeeting(meeting.id);
+                    showDialog(
+                      context: context,
+                      builder: (BuildContext dialogContext) {
+                        return AlertDialog(
+                          title: const Text('Confirmer la suppression'),
+                          content: const Text('Êtes-vous sûr de vouloir supprimer cette réunion ?'),
+                          actions: <Widget>[
+                            TextButton(
+                              child: const Text('Annuler'),
+                              onPressed: () {
+                                Navigator.of(dialogContext).pop(); // Ferme la dialog
+                              },
+                            ),
+                            TextButton(
+                              child: const Text('Supprimer'),
+                              onPressed: () {
+                                Navigator.of(dialogContext).pop(); // Ferme la dialog
+                                ref.read(asyncMeetingProvider.notifier).deleteMeeting(meeting.id);
+                                // Affiche une notification de succès
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('La réunion a été supprimée.'),
+                                    backgroundColor: Colors.green,
+                                  ),
+                                );
+                              },
+                            ),
+                          ],
+                        );
+                      },
+                    );
                   },
                 );
               },
             );
           },
-          loading: () {
-            // Affiche un indicateur de chargement
-            return const Center(child: CircularProgressIndicator());
-          },
-          error: (error, stackTrace) {
-            // Affiche un message d'erreur
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text('Erreur: $error'),
-                  const SizedBox(height: 16),
-                  ElevatedButton(
-                    onPressed: () {
-                      ref.read(asyncMeetingProvider.notifier).refreshMeetings();
-                    },
-                    child: const Text('Réessayer'),
-                  )
-                ],
-              ),
-            );
-          },
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (error, stack) => Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text('Erreur: $error'),
+                const SizedBox(height: 16),
+                ElevatedButton(
+                  onPressed: () => ref.read(asyncMeetingProvider.notifier).refreshMeetings(),
+                  child: const Text('Réessayer'),
+                )
+              ],
+            ),
+          ),
         ),
       ),
     );
