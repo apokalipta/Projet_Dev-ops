@@ -27,13 +27,11 @@ jobs:
         with:
           gradle-home-cache-cleanup: true
           
-      - name: Grant execute permission for gradlew
+      - name: Make gradlew executable
         run: chmod +x gradlew
-        working-directory: Meeting-service
         
       - name: Build with Gradle
-        working-directory: Meeting-service
-        run: ./gradlew build --no-daemon
+        run: ./gradlew :Meeting-service:build --no-daemon
         
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
