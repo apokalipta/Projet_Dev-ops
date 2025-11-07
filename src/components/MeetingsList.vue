@@ -130,52 +130,39 @@
 </template>
 
 <script>
-import { apiService } from '../services/api.js'
+import { mockMeetings } from '../data/meetings';
 
 export default {
   name: 'MeetingsList',
   
   data() {
     return {
-      meetings: [],
       isLoading: false,
-      error: null
+      error: null,
+      meetings: []
     }
   },
-
-  async mounted() {
-    await this.loadMeetings()
+  
+  mounted() {
+    this.loadMeetings()
   },
-
+  
   methods: {
-    async loadMeetings() {
-      this.isLoading = true
-      this.error = null
-
+    loadMeetings() {
       try {
-        const response = await apiService.getAllMeetings()
-        
-        if (Array.isArray(response)) {
-          this.meetings = response
-        } else if (response.data && Array.isArray(response.data)) {
-          this.meetings = response.data
-        } else {
-          this.meetings = []
-        }
-      } catch (error) {
-        console.error('Erreur lors du chargement des réunions:', error)
+        this.meetings = mockMeetings
+      } catch (err) {
+        console.error('Erreur lors du chargement des réunions:', err)
         this.error = 'Impossible de charger les réunions. Veuillez réessayer.'
-      } finally {
-        this.isLoading = false
       }
     },
-
+    
     refreshMeetings() {
       this.loadMeetings()
     },
 
-    viewMeetingDetails(meetingId) {
-      this.$emit('view-meeting', meetingId)
+    viewMeetingDetails(meeting) {
+      this.$emit('view-meeting', meeting.id)
     },
 
     getStatusLabel(status) {

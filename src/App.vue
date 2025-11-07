@@ -348,10 +348,11 @@
 </template>
 
 <script>
+import { ref } from 'vue';
 import SetupMeeting from './components/SetupMeeting.vue';
+import MeetingsList from './components/MeetingsList.vue';
 import AssignParticipants from './components/AssignParticipants.vue';
 import StartMeeting from './components/StartMeeting.vue';
-import MeetingsList from './components/MeetingsList.vue';
 import MeetingViewer from './components/MeetingViewer.vue';
 
 export default {
@@ -359,13 +360,13 @@ export default {
   components: {
     SetupMeeting,
     AssignParticipants,
-    StartMeeting,
     MeetingsList,
+    StartMeeting,
     MeetingViewer
   },
   data() {
     return {
-      currentPage: 'home', // 'home', 'setup', 'assign-participants', 'start-meeting', 'meetings-list', 'view'
+      currentPage: 'home',
       createdMeeting: null,
       currentMeetingId: null
     };

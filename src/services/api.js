@@ -1,6 +1,7 @@
 // Service API pour Transcript IA
 import { API_CONFIG, buildApiUrl, getDefaultHeaders, getAuthHeaders, ENDPOINTS } from '../config/api.js'
 import { ERROR_MESSAGES } from '../config/constants.js'
+import { cacheService } from './cacheService.js'
 
 class ApiError extends Error {
   constructor(status, message, details = null) {
@@ -17,9 +18,23 @@ class ApiService {
     this.timeout = API_CONFIG.TIMEOUTS.DEFAULT
   }
 
-  // Méthode générique pour les requêtes HTTP
+  // Méthode générique pour les requêtes HTTP avec cache de secours
   async request(endpoint, options = {}) {
     const url = endpoint.startsWith('http') ? endpoint : `${this.baseURL}${endpoint}`
+    const cacheKey = `${options.method || 'GET'}:${url}`
+
+    // Pour les requêtes GET, vérifier d'abord le cache
+    if (!options.method || options.method.toUpperCase() === 'GET') {
+      try {
+        const cachedData = await cacheService.get(cacheKey);
+        if (cachedData) {
+          console.log('Données récupérées depuis le cache pour:', cacheKey);
+          return cachedData;
+        }
+      } catch (error) {
+        console.warn('Erreur lors de la lecture du cache:', error);
+      }
+    }
 
     const defaultOptions = {
       headers: getDefaultHeaders(),
@@ -34,13 +49,50 @@ class ApiService {
       const body = isJson ? await response.json() : await response.text()
 
       if (!response.ok) {
+        // En cas d'erreur, essayer de retourner les données en cache si disponibles
+        if (!options.method || options.method.toUpperCase() === 'GET') {
+          try {
+            const cachedData = await cacheService.get(cacheKey);
+            if (cachedData) {
+              console.warn('API non disponible, utilisation des données en cache pour:', cacheKey);
+              return cachedData;
+            }
+          } catch (cacheError) {
+            console.warn('Erreur lors de la lecture du cache de secours:', cacheError);
+          }
+        }
         throw new ApiError(response.status, body?.message || response.statusText, body)
+      }
+
+      // Mettre en cache les réponses GET réussies
+      if ((!options.method || options.method.toUpperCase() === 'GET') && isJson) {
+        try {
+          // Mettre en cache pendant 1 heure par défaut
+          await cacheService.set(cacheKey, body, 3600000);
+        } catch (cacheError) {
+          console.warn('Erreur lors de la mise en cache:', cacheError);
+        }
       }
 
       return body
     } catch (error) {
-      console.error('Erreur API:', error)
-      throw this.handleError(error)
+      console.error('Erreur API:', error);
+      
+      // Pour les erreurs réseau ou de timeout, essayer de retourner les données en cache
+      if ((!options.method || options.method.toUpperCase() === 'GET') && 
+          (error.name === 'TypeError' || error.name === 'AbortError')) {
+        try {
+          const cachedData = await cacheService.get(cacheKey);
+          if (cachedData) {
+            console.warn('API non disponible, utilisation des données en cache pour:', cacheKey);
+            return cachedData;
+          }
+        } catch (cacheError) {
+          console.warn('Erreur lors de la lecture du cache de secours:', cacheError);
+        }
+      }
+      
+      throw this.handleError(error);
     }
   }
 
