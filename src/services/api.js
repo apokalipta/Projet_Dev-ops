@@ -2,6 +2,15 @@
 import { API_CONFIG, buildApiUrl, getDefaultHeaders, getAuthHeaders, ENDPOINTS } from '../config/api.js'
 import { ERROR_MESSAGES } from '../config/constants.js'
 
+class ApiError extends Error {
+  constructor(status, message, details = null) {
+    super(message || `Erreur API (HTTP ${status})`)
+    this.name = 'ApiError'
+    this.status = status
+    this.details = details
+  }
+}
+
 class ApiService {
   constructor() {
     this.baseURL = API_CONFIG.BASE_URL
@@ -11,7 +20,7 @@ class ApiService {
   // Méthode générique pour les requêtes HTTP
   async request(endpoint, options = {}) {
     const url = endpoint.startsWith('http') ? endpoint : `${this.baseURL}${endpoint}`
-    
+
     const defaultOptions = {
       headers: getDefaultHeaders(),
       timeout: this.timeout,
@@ -20,17 +29,15 @@ class ApiService {
 
     try {
       const response = await fetch(url, defaultOptions)
-      
+      const contentType = response.headers.get('content-type') || ''
+      const isJson = contentType.includes('application/json')
+      const body = isJson ? await response.json() : await response.text()
+
       if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+        throw new ApiError(response.status, body?.message || response.statusText, body)
       }
-      
-      const contentType = response.headers.get('content-type')
-      if (contentType && contentType.includes('application/json')) {
-        return await response.json()
-      }
-      
-      return await response.text()
+
+      return body
     } catch (error) {
       console.error('Erreur API:', error)
       throw this.handleError(error)
@@ -39,6 +46,10 @@ class ApiService {
 
   // Gestion des erreurs
   handleError(error) {
+    if (error instanceof ApiError) {
+      return error
+    }
+
     if (error.name === 'TypeError' && error.message.includes('fetch')) {
       return new Error(ERROR_MESSAGES.NETWORK_ERROR)
     }
@@ -69,39 +80,52 @@ class ApiService {
 
   // Méthodes pour les réunions
   async getAllMeetings(token) {
-    return this.request(ENDPOINTS.ALL_MEETINGS, {
+    const headers = token ? getAuthHeaders(token) : getDefaultHeaders()
+    return this.request(ENDPOINTS.LIST_MEETINGS, {
       method: 'GET',
-      headers: getAuthHeaders(token)
+      headers
     })
   }
 
   async getMeetingById(id, token) {
-    return this.request(`/meetings/${id}`, {
+    const headers = token ? getAuthHeaders(token) : getDefaultHeaders()
+    return this.request(ENDPOINTS.GET_MEETING(id), {
       method: 'GET',
-      headers: getAuthHeaders(token)
+      headers
     })
   }
 
   async createMeeting(meetingData, token) {
+    const headers = token ? getAuthHeaders(token) : getDefaultHeaders()
     return this.request(ENDPOINTS.CREATE_MEETING, {
       method: 'POST',
-      headers: getAuthHeaders(token),
+      headers,
       body: JSON.stringify(meetingData)
     })
   }
 
   async updateMeeting(id, meetingData, token) {
-    return this.request(`/meetings/${id}`, {
+    const headers = token ? getAuthHeaders(token) : getDefaultHeaders()
+    return this.request(ENDPOINTS.GET_MEETING(id), {
       method: 'PUT',
-      headers: getAuthHeaders(token),
+      headers,
       body: JSON.stringify(meetingData)
     })
   }
 
   async deleteMeeting(id, token) {
-    return this.request(`/meetings/${id}`, {
+    const headers = token ? getAuthHeaders(token) : getDefaultHeaders()
+    return this.request(ENDPOINTS.GET_MEETING(id), {
       method: 'DELETE',
-      headers: getAuthHeaders(token)
+      headers
+    })
+  }
+
+  async startMeeting(id, token) {
+    const headers = token ? getAuthHeaders(token) : getDefaultHeaders()
+    return this.request(ENDPOINTS.START_MEETING(id), {
+      method: 'POST',
+      headers
     })
   }
 

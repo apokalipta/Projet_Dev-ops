@@ -28,57 +28,146 @@
     </nav>
 
     <!-- Page d'accueil -->
-    <div v-if="currentPage === 'home'">
-      <!-- Section Hero -->
-      <section class="hero">
-        <div class="hero-container">
-          <div class="hero-content">
-            <h1 class="hero-title">
-              Transcription de Réunion
-              <span class="gradient-text">Intelligente</span>
+    <div v-if="currentPage === 'home'" class="home-page">
+      <!-- Section Hero Moderne -->
+      <section class="hero-modern">
+        <div class="hero-container-modern">
+          <div class="welcome-section">
+            <div class="welcome-badge">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+                <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+              </svg>
+              Transcript IA
+            </div>
+            <h1 class="hero-title-modern">
+              Bienvenue sur votre
+              <span class="gradient-text-modern">espace de transcription</span>
             </h1>
-            <p class="hero-description">
-              Transformez vos réunions en texte avec une précision exceptionnelle. 
-              Notre IA avancée capture chaque mot, chaque nuance, pour une documentation parfaite.
+            <p class="hero-subtitle-modern">
+              Gérez vos réunions, démarrez des transcriptions et consultez vos enregistrements en un clic.
             </p>
-            <div class="hero-buttons">
-            <button class="btn btn-primary" @click="planMeeting">
-              <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
-                <line x1="16" y1="2" x2="16" y2="6"/>
-                <line x1="8" y1="2" x2="8" y2="6"/>
-                <line x1="3" y1="10" x2="21" y2="10"/>
-              </svg>
-              Planifier la Réunion
-            </button>
-            <button class="btn btn-secondary" @click="startMeeting">
-              <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/>
-                <path d="M12 15l-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/>
-                <path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/>
-                <path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/>
-              </svg>
-              Commencer la Réunion
-            </button>
+          </div>
+
+          <!-- Statistiques rapides -->
+          <div class="stats-grid">
+            <div class="stat-card">
+              <div class="stat-icon stat-icon-primary">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+                  <line x1="16" y1="2" x2="16" y2="6"/>
+                  <line x1="8" y1="2" x2="8" y2="6"/>
+                  <line x1="3" y1="10" x2="21" y2="10"/>
+                </svg>
+              </div>
+              <div class="stat-content">
+                <h3 class="stat-number">12</h3>
+                <p class="stat-label">Réunions planifiées</p>
+              </div>
+            </div>
+
+            <div class="stat-card">
+              <div class="stat-icon stat-icon-success">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="9,11 12,14 22,4"/>
+                  <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+                </svg>
+              </div>
+              <div class="stat-content">
+                <h3 class="stat-number">45</h3>
+                <p class="stat-label">Réunions terminées</p>
+              </div>
+            </div>
+
+            <div class="stat-card">
+              <div class="stat-icon stat-icon-warning">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="12" cy="12" r="10"/>
+                  <polyline points="12,6 12,12 16,14"/>
+                </svg>
+              </div>
+              <div class="stat-content">
+                <h3 class="stat-number">24h</h3>
+                <p class="stat-label">Temps total transcrit</p>
+              </div>
+            </div>
+
+            <div class="stat-card">
+              <div class="stat-icon stat-icon-info">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                  <circle cx="9" cy="7" r="4"/>
+                  <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                  <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                </svg>
+              </div>
+              <div class="stat-content">
+                <h3 class="stat-number">8</h3>
+                <p class="stat-label">Participants actifs</p>
+              </div>
             </div>
           </div>
-          <div class="hero-visual">
-            <div class="transcription-demo">
-              <div class="demo-header">
-                <div class="demo-dots">
-                  <span class="dot red"></span>
-                  <span class="dot yellow"></span>
-                  <span class="dot green"></span>
+
+          <!-- Actions rapides -->
+          <div class="quick-actions">
+            <h2 class="section-title-modern">Actions rapides</h2>
+            <div class="actions-grid">
+              <div class="action-card action-primary" @click="planMeeting">
+                <div class="action-icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+                    <line x1="16" y1="2" x2="16" y2="6"/>
+                    <line x1="8" y1="2" x2="8" y2="6"/>
+                    <line x1="3" y1="10" x2="21" y2="10"/>
+                  </svg>
                 </div>
-                <span class="demo-title">Transcription en cours...</span>
+                <div class="action-content">
+                  <h3>Planifier une réunion</h3>
+                  <p>Créez une nouvelle réunion et invitez des participants</p>
+                </div>
+                <div class="action-arrow">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="5" y1="12" x2="19" y2="12"/>
+                    <polyline points="12,5 19,12 12,19"/>
+                  </svg>
+                </div>
               </div>
-              <div class="demo-content">
-                <div class="speaking-indicator">
-                  <div class="wave"></div>
-                  <span>Jean Dupont parle</span>
+
+              <div class="action-card action-secondary" @click="startMeeting">
+                <div class="action-icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"/>
+                    <polygon points="10,8 16,12 10,16 10,8"/>
+                  </svg>
                 </div>
-                <div class="transcription-text">
-                  <p>"Bonjour à tous, je suis ravi de vous retrouver pour cette réunion importante..."</p>
+                <div class="action-content">
+                  <h3>Commencer une réunion</h3>
+                  <p>Démarrez la transcription d'une réunion planifiée</p>
+                </div>
+                <div class="action-arrow">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="5" y1="12" x2="19" y2="12"/>
+                    <polyline points="12,5 19,12 12,19"/>
+                  </svg>
+                </div>
+              </div>
+
+              <div class="action-card action-tertiary" @click="viewMeetingsList">
+                <div class="action-icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                    <circle cx="12" cy="12" r="3"/>
+                  </svg>
+                </div>
+                <div class="action-content">
+                  <h3>Voir mes réunions</h3>
+                  <p>Consultez et visualisez toutes vos réunions enregistrées</p>
+                </div>
+                <div class="action-arrow">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="5" y1="12" x2="19" y2="12"/>
+                    <polyline points="12,5 19,12 12,19"/>
+                  </svg>
                 </div>
               </div>
             </div>
@@ -231,48 +320,92 @@
         @participants-assigned="onParticipantsAssigned" 
       />
     </div>
+
+    <!-- Page Liste des Réunions -->
+    <div v-if="currentPage === 'meetings-list'">
+      <MeetingsList 
+        @back="backToHome" 
+        @go-to-plan="planMeeting"
+        @view-meeting="viewMeeting"
+      />
+    </div>
+
+    <!-- Page de Visualisation de Réunion -->
+    <div v-if="currentPage === 'view'" class="meeting-viewer">
+      <MeetingViewer :meeting-id="currentMeetingId" @back="backToMeetingsList" />
+    </div>
+
+    <!-- Page de Démarrage de Réunion -->
+    <div v-if="currentPage === 'start-meeting'">
+      <StartMeeting 
+        @back="backToHome" 
+        @go-to-plan="planMeeting"
+        @meeting-started="onMeetingStarted"
+        @view-meeting="viewMeeting"
+      />
+    </div>
   </div>
 </template>
 
 <script>
-import SetupMeeting from './components/SetupMeeting.vue'
-import AssignParticipants from './components/AssignParticipants.vue'
+import SetupMeeting from './components/SetupMeeting.vue';
+import AssignParticipants from './components/AssignParticipants.vue';
+import StartMeeting from './components/StartMeeting.vue';
+import MeetingsList from './components/MeetingsList.vue';
+import MeetingViewer from './components/MeetingViewer.vue';
 
 export default {
   name: 'App',
   components: {
     SetupMeeting,
-    AssignParticipants
+    AssignParticipants,
+    StartMeeting,
+    MeetingsList,
+    MeetingViewer
   },
   data() {
     return {
-      currentPage: 'home', // 'home', 'setup', ou 'assign-participants'
-      createdMeeting: null
-    }
+      currentPage: 'home', // 'home', 'setup', 'assign-participants', 'start-meeting', 'meetings-list', 'view'
+      createdMeeting: null,
+      currentMeetingId: null
+    };
   },
   methods: {
     planMeeting() {
-      this.currentPage = 'setup'
+      this.currentPage = 'setup';
     },
     startMeeting() {
-      alert('🚀 Fonctionnalité de réunion instantanée bientôt disponible !')
+      this.currentPage = 'start-meeting';
+    },
+    viewMeetingsList() {
+      this.currentPage = 'meetings-list';
     },
     backToHome() {
-      this.currentPage = 'home'
-      this.createdMeeting = null
+      this.currentPage = 'home';
+    },
+    backToMeetingsList() {
+      this.currentPage = 'meetings-list';
     },
     backToSetup() {
-      this.currentPage = 'setup'
+      this.currentPage = 'setup';
+    },
+    viewMeeting(meetingId) {
+      this.currentMeetingId = meetingId;
+      this.currentPage = 'view';
     },
     onMeetingCreated(meetingData) {
-      this.createdMeeting = meetingData
-      this.currentPage = 'assign-participants'
+      this.createdMeeting = meetingData;
+      this.currentPage = 'assign-participants';
     },
     onParticipantsAssigned(participants) {
-      console.log('Participants assignés:', participants)
-      // Ici vous pourriez rediriger vers la page de réunion active
-      alert('✅ Participants assignés avec succès !')
+      console.log('Participants assignés:', participants);
+      // Logique supplémentaire si nécessaire
+    },
+    onMeetingStarted(data) {
+      console.log('Réunion démarrée:', data);
+      // Ici vous pourriez rediriger vers la page de transcription en cours
+      // this.currentPage = 'transcription-active';
     }
   }
-}
+};
 </script>

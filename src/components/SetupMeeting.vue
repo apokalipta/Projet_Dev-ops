@@ -178,74 +178,6 @@
           <div class="char-count">{{ meetingData.description.length }}/500 caractères</div>
         </div>
 
-        <!-- Sélection du microphone -->
-        <div class="microphone-section">
-          <h3 class="section-title">
-            <svg class="section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M9 18V5l12-2v13"/>
-              <circle cx="6" cy="18" r="3"/>
-              <circle cx="18" cy="16" r="3"/>
-            </svg>
-            Configuration Audio
-          </h3>
-          
-          <div class="form-group">
-            <label for="microphone" class="form-label">
-              <svg class="label-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
-                <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
-                <line x1="12" y1="19" x2="12" y2="23"/>
-                <line x1="8" y1="23" x2="16" y2="23"/>
-              </svg>
-              Microphone
-            </label>
-            <div class="microphone-container">
-              <select
-                id="microphone"
-                v-model="meetingData.selectedMicrophone"
-                class="form-select microphone-select"
-                @change="onMicrophoneChange"
-              >
-                <option value="">Sélectionnez un microphone</option>
-                <option 
-                  v-for="device in audioDevices" 
-                  :key="device.deviceId" 
-                  :value="device.deviceId"
-                  :title="device.label || `Microphone ${device.deviceId.slice(0, 8)}`"
-                >
-                  {{ truncateDeviceName(device.label || `Microphone ${device.deviceId.slice(0, 8)}`) }}
-                </option>
-              </select>
-              <button 
-                type="button" 
-                @click="refreshAudioDevices" 
-                class="btn btn-refresh"
-                :disabled="isScanning"
-                :title="isScanning ? 'Scan en cours...' : 'Scanner les microphones'"
-              >
-                <svg v-if="isScanning" class="icon-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M21 12a9 9 0 11-6.219-8.56"/>
-                </svg>
-                <svg v-else class="icon-refresh" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/>
-                  <path d="M21 3v5h-5"/>
-                  <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/>
-                  <path d="M3 21v-5h5"/>
-                </svg>
-                <span class="btn-text">{{ isScanning ? 'Scan...' : 'Scanner' }}</span>
-              </button>
-            </div>
-            <div class="microphone-info">
-              <p v-if="audioDevices.length === 0" class="info-text">
-                Aucun microphone détecté. Vérifiez vos périphériques audio.
-              </p>
-              <p v-else class="info-text">
-                {{ audioDevices.length }} microphone{{ audioDevices.length > 1 ? 's' : '' }} détecté{{ audioDevices.length > 1 ? 's' : '' }}
-              </p>
-            </div>
-          </div>
-        </div>
-
         <!-- Options avancées -->
         <div class="advanced-options">
           <h3 class="options-title">
@@ -315,6 +247,8 @@
 </template>
 
 <script>
+import { apiService } from '../services/api.js'
+
 export default {
   name: 'SetupMeeting',
   data() {
@@ -325,15 +259,12 @@ export default {
         participants: '',
         duration: '',
         description: '',
-        selectedMicrophone: '',
         autoStart: true,
         sendReminders: false
       },
       durationType: 'preset',
       customHours: 0,
       customMinutes: 0,
-      audioDevices: [],
-      isScanning: false,
       errors: {},
       isLoading: false
     }
@@ -355,59 +286,7 @@ export default {
       return ''
     }
   },
-  async mounted() {
-    // Scanner les périphériques audio au chargement du composant
-    await this.refreshAudioDevices()
-  },
   methods: {
-    async refreshAudioDevices() {
-      this.isScanning = true
-      
-      try {
-        // Demander l'autorisation d'accès au microphone
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-        
-        // Obtenir la liste des périphériques audio
-        const devices = await navigator.mediaDevices.enumerateDevices()
-        
-        // Filtrer uniquement les microphones (input audio)
-        this.audioDevices = devices.filter(device => device.kind === 'audioinput')
-        
-        // Arrêter le stream pour libérer le microphone
-        stream.getTracks().forEach(track => track.stop())
-        
-        // Sélectionner automatiquement le premier microphone si disponible
-        if (this.audioDevices.length > 0 && !this.meetingData.selectedMicrophone) {
-          this.meetingData.selectedMicrophone = this.audioDevices[0].deviceId
-        }
-        
-      } catch (error) {
-        console.error('Erreur lors du scan des microphones:', error)
-        this.audioDevices = []
-        
-        // Afficher un message d'erreur selon le type d'erreur
-        if (error.name === 'NotAllowedError') {
-          alert('❌ Accès au microphone refusé. Veuillez autoriser l\'accès au microphone dans les paramètres de votre navigateur.')
-        } else if (error.name === 'NotFoundError') {
-          alert('❌ Aucun microphone détecté. Vérifiez que votre microphone est connecté.')
-        } else {
-          alert('❌ Erreur lors de la détection des microphones.')
-        }
-      } finally {
-        this.isScanning = false
-      }
-    },
-    
-    onMicrophoneChange() {
-      console.log('Microphone sélectionné:', this.meetingData.selectedMicrophone)
-      // Ici vous pourriez tester le microphone sélectionné
-    },
-    
-    truncateDeviceName(name, maxLength = 40) {
-      if (name.length <= maxLength) return name
-      return name.substring(0, maxLength - 3) + '...'
-    },
-    
     validateForm() {
       this.errors = {}
       
@@ -466,47 +345,44 @@ export default {
         return
       }
       
-      // Préparer les données finales
-      const finalData = { ...this.meetingData }
-      if (this.durationType === 'custom') {
-        const totalMinutes = (this.customHours * 60) + this.customMinutes
-        finalData.duration = totalMinutes.toString()
-        finalData.durationType = 'custom'
-        finalData.durationText = this.customDurationText
-      } else {
-        finalData.durationType = 'preset'
+      const isCustom = this.durationType === 'custom'
+      const totalMinutes = isCustom
+        ? (this.customHours * 60) + this.customMinutes
+        : Number(this.meetingData.duration)
+
+      const payload = {
+        name: this.meetingData.name.trim(),
+        date: new Date(this.meetingData.date).toISOString(),
+        duration: Number.isFinite(totalMinutes) ? Number(totalMinutes) : undefined,
+        participants: Number.isFinite(Number(this.meetingData.participants)) ? Number(this.meetingData.participants) : undefined,
+        description: this.meetingData.description?.trim?.() || '',
+        autoStart: Boolean(this.meetingData.autoStart),
+        sendReminders: Boolean(this.meetingData.sendReminders),
+        metadata: {
+          durationType: this.durationType,
+          customDurationText: this.customDurationText || null
+        }
       }
       
       this.isLoading = true
       
       try {
-        // TODO: Remplacer par l'appel API réel
-        // const response = await fetch('/api/meetings/create', {
-        //   method: 'POST',
-        //   headers: {
-        //     'Content-Type': 'application/json',
-        //     'Authorization': `Bearer ${token}`
-        //   },
-        //   body: JSON.stringify(finalData)
-        // })
-        
-        // Simulation d'un appel API
-        await new Promise(resolve => setTimeout(resolve, 2000))
-        
-        // Log des données pour le développement
-        console.log('📋 Données de la réunion à envoyer:', finalData)
-        console.log('🔗 Endpoint à configurer: POST /api/meetings/create')
-        
-        // Émettre un événement pour rediriger vers l'assignation des participants
-        this.$emit('meeting-created', {
-          ...finalData,
-          meetingId: 'temp-id-' + Date.now(), // ID temporaire pour le développement
-          status: 'created'
-        })
-        
+        const response = await apiService.createMeeting(payload)
+        if (!response?.success || !response?.data) {
+          throw new Error(response?.message || 'Réponse inattendue du serveur.')
+        }
+
+        this.$emit('meeting-created', response.data)
       } catch (error) {
         console.error('Erreur lors de la création:', error)
-        alert('❌ Erreur lors de la création de la réunion')
+        const details = error?.details?.errors
+        if (details) {
+          this.errors = {
+            ...this.errors,
+            ...details
+          }
+        }
+        alert(error?.message || '❌ Erreur lors de la création de la réunion')
       } finally {
         this.isLoading = false
       }
@@ -842,115 +718,6 @@ export default {
   font-size: 0.9rem;
   text-align: center;
 }
-
-/* Styles pour la sélection du microphone */
-.microphone-section {
-  margin: 2rem 0;
-  padding: 1.5rem;
-  background: #f8fafc;
-  border-radius: 0.75rem;
-  border: 1px solid #e5e7eb;
-}
-
-.section-title {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 1.1rem;
-  font-weight: 600;
-  color: #374151;
-  margin-bottom: 1rem;
-}
-
-.section-icon {
-  width: 20px;
-  height: 20px;
-  stroke: currentColor;
-  stroke-width: 2;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  flex-shrink: 0;
-}
-
-.microphone-container {
-  display: flex;
-  gap: 0.75rem;
-  align-items: center;
-}
-
-.microphone-select {
-  flex: 1;
-  min-width: 0; /* Permet au select de se rétrécir */
-  max-width: 100%;
-}
-
-.microphone-select option {
-  padding: 0.5rem;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.btn-refresh {
-  padding: 0.75rem 1rem;
-  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
-  color: white;
-  border: none;
-  border-radius: 0.75rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  min-width: 120px;
-  justify-content: center;
-  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
-  position: relative;
-  overflow: hidden;
-}
-
-.btn-refresh::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: -100%;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
-  transition: left 0.5s;
-}
-
-.btn-refresh:hover:not(:disabled)::before {
-  left: 100%;
-}
-
-.btn-refresh:hover:not(:disabled) {
-  background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
-  transform: translateY(-2px);
-  box-shadow: 0 8px 15px -3px rgb(0 0 0 / 0.2);
-}
-
-.btn-refresh:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-  transform: none;
-}
-
-.icon-refresh,
-.icon-spin {
-  width: 18px;
-  height: 18px;
-  stroke: currentColor;
-  stroke-width: 2;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
-.icon-spin {
-  animation: spin 1s linear infinite;
-}
-
 .icon-rocket {
   width: 18px;
   height: 18px;
@@ -960,19 +727,14 @@ export default {
   stroke-linejoin: round;
 }
 
-.btn-text {
-  font-size: 0.9rem;
-  font-weight: 500;
-}
-
-.microphone-info {
-  margin-top: 0.75rem;
-}
-
-.info-text {
-  font-size: 0.9rem;
-  color: #6b7280;
-  margin: 0;
+.icon-spin {
+  width: 18px;
+  height: 18px;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  animation: spin 1s linear infinite;
 }
 
 /* Responsive Design */
@@ -1006,19 +768,6 @@ export default {
   
   .duration-input {
     width: 70px;
-  }
-  
-  .microphone-container {
-    flex-direction: column;
-    align-items: stretch;
-  }
-  
-  .btn-refresh {
-    width: 100%;
-  }
-  
-  .microphone-select {
-    font-size: 0.9rem;
   }
 }
 </style>
