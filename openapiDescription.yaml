@@ -1,0 +1,504 @@
+openapi: 3.0.3
+info:
+  title: Meeting & Transcription Platform API
+  description: >
+    API pour la plateforme web et mobile de gestion, enregistrement et transcription de réunions.
+    Elle regroupe les endpoints des microservices Meeting et Transcription.
+  version: 1.0.0
+  contact:
+    name: Projet transcript Réunions
+    email: contact@contact.local
+
+servers:
+  - url: http://localhost:8080
+    description: Environnement local (Quarkus / Docker)
+  - url: https://api.reunion-platform.com
+    description: Environnement de production
+
+tags:
+  - name: Meeting
+    description: Gestion des réunions et participants
+  - name: Transcription
+    description: Gestion des transcriptions, segments et locuteurs
+
+paths:
+  # -------------------------------------------------------------------------
+  # MEETING SERVICE
+  # -------------------------------------------------------------------------
+  /api/meeting:
+    post:
+      tags: [Meeting]
+      summary: Créer une nouvelle réunion
+      operationId: createMeeting
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MeetingCreateRequest'
+      responses:
+        '201':
+          description: Réunion créée
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Meeting'
+
+  /api/meeting/all:
+    get:
+      tags: [Meeting]
+      summary: Lister toutes les réunions
+      operationId: listMeetings
+      responses:
+        '200':
+          description: Liste de toutes les réunions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Meeting'
+
+  /api/meeting/{id_meeting}:
+    get:
+      tags: [Meeting]
+      summary: Obtenir les détails d’une réunion spécifique
+      operationId: getMeetingById
+      parameters:
+        - name: id_meeting
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Détails de la réunion
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Meeting'
+
+  /api/meeting/{id_meeting}/participant/all:
+    get:
+      tags: [Meeting]
+      summary: Lister les participants d’une réunion
+      operationId: listParticipants
+      parameters:
+        - name: id_meeting
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Liste des participants
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Participant'
+
+  /api/meeting/{id_meeting}/participant:
+    post:
+      tags: [Meeting]
+      summary: Ajouter un participant à une réunion
+      operationId: addParticipant
+      parameters:
+        - name: id_meeting
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Participant'
+      responses:
+        '201':
+          description: Participant ajouté
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Participant'
+
+  /api/meeting/{id_meeting}/participant/{id_participant}:
+    delete:
+      tags: [Meeting]
+      summary: Retirer un participant d’une réunion
+      operationId: removeParticipant
+      parameters:
+        - name: id_meeting
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: id_participant
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '204':
+          description: Participant retiré
+
+  /api/meeting/search/byTitle:
+    get:
+      tags: [Meeting]
+      summary: Recherche de réunions par titre
+      operationId: searchMeetingByTitle
+      parameters:
+        - name: title
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Réunions trouvées
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Meeting'
+
+  # -------------------------------------------------------------------------
+  # TRANSCRIPTION SERVICE
+  # -------------------------------------------------------------------------
+  /api/transcribe:
+    post:
+      tags: [Transcription]
+      summary: Envoyer un audio pour transcription
+      operationId: uploadAudio
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                id_meeting:
+                  type: integer
+                audio_file:
+                  type: string
+                  format: binary
+      responses:
+        '201':
+          description: Tâche de transcription créée
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Transcription'
+
+  /api/transcription/{id_meeting}/segment/all:
+    get:
+      tags: [Transcription]
+      summary: Lister tous les segments d’une réunion
+      operationId: listSegments
+      parameters:
+        - name: id_meeting
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Liste de segments
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Segment'
+
+  /api/transcription/{id_meeting}/segment/{id_segment}:
+    get:
+      tags: [Transcription]
+      summary: Obtenir un segment spécifique
+      operationId: getSegment
+      parameters:
+        - name: id_meeting
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: id_segment
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Segment spécifique
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Segment'
+
+    put:
+      tags: [Transcription]
+      summary: Modifier le texte d’un segment
+      operationId: updateSegmentText
+      parameters:
+        - name: id_meeting
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: id_segment
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                text:
+                  type: string
+      responses:
+        '202':
+          description: Texte du segment modifié
+
+  /api/transcription/{id_meeting}/segment/{id_segment}/locuteur/all:
+    get:
+      tags: [Transcription]
+      summary: Lister les locuteurs d’un segment
+      operationId: listLocuteurs
+      parameters:
+        - name: id_meeting
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: id_segment
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Liste de locuteurs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Locuteur'
+
+  /api/transcription/{id_meeting}/segment/{id_segment}/locuteur/{id_participant}:
+    put:
+      tags: [Transcription]
+      summary: Modifier le locuteur d’un segment
+      operationId: updateLocuteur
+      parameters:
+        - name: id_meeting
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: id_segment
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: id_participant
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '202':
+          description: Locuteur modifié
+
+  /api/transcription/{id_meeting}/record_file:
+    get:
+      tags: [Transcription]
+      summary: Récupérer l’audio de la réunion
+      operationId: getRecordFile
+      parameters:
+        - name: id_meeting
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Fichier audio
+          content:
+            audio/mpeg:
+              schema:
+                type: string
+                format: binary
+
+  /api/transcription/{id_meeting}/segment/{id_segment}/time_depart:
+    get:
+      tags: [Transcription]
+      summary: Obtenir le timestamp de début d’un segment
+      operationId: getSegmentStart
+      parameters:
+        - name: id_meeting
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: id_segment
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Temps de début du segment
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  time_depart:
+                    type: string
+                    format: date-time
+
+  /api/transcription/{id_meeting}/segment/{id_segment}/time_fin:
+    get:
+      tags: [Transcription]
+      summary: Obtenir le timestamp de fin d’un segment
+      operationId: getSegmentEnd
+      parameters:
+        - name: id_meeting
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: id_segment
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Temps de fin du segment
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  time_fin:
+                    type: string
+                    format: date-time
+
+# ---------------------------------------------------------------------------
+# SCHEMAS / MODELS
+# ---------------------------------------------------------------------------
+components:
+  schemas:
+    Meeting:
+      type: object
+      properties:
+        id_meeting:
+          type: integer
+        title:
+          type: string
+        date:
+          type: string
+          format: date-time
+        participants:
+          type: array
+          items:
+            $ref: '#/components/schemas/Participant'
+        status:
+          type: string
+          enum: [Planifiée, En cours, Terminée]
+
+    MeetingCreateRequest:
+      type: object
+      properties:
+        title:
+          type: string
+        date:
+          type: string
+          format: date-time
+        participants:
+          type: array
+          items:
+            $ref: '#/components/schemas/Participant'
+
+    Participant:
+      type: object
+      properties:
+        id_participant:
+          type: integer
+        name:
+          type: string
+        email:
+          type: string
+        role:
+          type: string
+
+    Transcription:
+      type: object
+      properties:
+        id_transcription:
+          type: integer
+        id_meeting:
+          type: integer
+        status:
+          type: string
+          enum: [En attente, En cours, Terminée]
+        confidence_avg:
+          type: number
+          format: float
+        segments:
+          type: array
+          items:
+            $ref: '#/components/schemas/Segment'
+
+    Segment:
+      type: object
+      properties:
+        id_segment:
+          type: integer
+        start_time:
+          type: string
+          format: date-time
+        end_time:
+          type: string
+          format: date-time
+        text:
+          type: string
+        confidence:
+          type: number
+          format: float
+        locuteur:
+          $ref: '#/components/schemas/Locuteur'
+
+    Locuteur:
+      type: object
+      properties:
+        id_locuteur:
+          type: integer
+        name:
+          type: string
+        participant_ref:
+          type: integer
+        metrics:
+          $ref: '#/components/schemas/SpeakerMetrics'
+
+    SpeakerMetrics:
+      type: object
+      properties:
+        speaking_time:
+          type: number
+          format: float
+          description: Temps de parole en secondes
+        segments_count:
+          type: integer
+        confidence_avg:
+          type: number
+          format: float

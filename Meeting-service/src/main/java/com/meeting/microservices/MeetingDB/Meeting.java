@@ -1,5 +1,6 @@
 package com.meeting.microservices.MeetingDB;
 
+import io.quarkus.hibernate.orm.panache.PanacheEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -10,7 +11,7 @@ import jakarta.persistence.Table;
 
 @Entity 
 @Table(name = "meeting")
-public class Meeting {
+public class Meeting  {
 
     public Meeting(Long meetingid, String meetingParticipants, String meetingtitle, String meetingdescription, String meetingDate, String meetingPrevisualDuration, String meetingRealDuration, String meetingStatus) {
         setId(meetingid);
@@ -24,6 +25,7 @@ public class Meeting {
     }
 
     public Meeting() {
+
     }
 
     @Id
@@ -114,4 +116,5 @@ public class Meeting {
     public void setMeetingStatus(String meetingStatus) {
         this.meetingStatus = meetingStatus;
     }
+
 }

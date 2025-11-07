@@ -2,11 +2,27 @@ plugins {
     id 'java'
     id 'io.quarkus' version '3.15.1' apply false
     id 'eclipse'
+    id "org.openapi.generator" version "7.0.0"
 }
 
 // Configuration du projet
 group = 'com.meeting.microservices'
 version = '1.0.0-SNAPSHOT'
+
+
+
+openApiGenerate {
+    generatorName = "java"
+    inputSpec = "$rootDir/openapiDescription.yaml"
+    outputDir = "$buildDir/generated"
+    apiPackage = "com.reunion.api"
+    modelPackage = "com.reunion.model"
+    library = "quarkus"
+    configOptions = [
+            useJakartaEe: "true",
+            useBeanValidation: "true"
+    ]
+}
 
 allprojects {
     repositories {

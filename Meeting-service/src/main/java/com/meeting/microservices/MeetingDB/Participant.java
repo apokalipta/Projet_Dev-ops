@@ -1,5 +1,6 @@
 package com.meeting.microservices.MeetingDB;
 
+import io.quarkus.hibernate.orm.panache.PanacheEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -9,7 +10,7 @@ import jakarta.persistence.Table;
 
 @Entity 
 @Table(name = "participant")
-public class Participant {
+public class Participant  {
 	
     public Participant(){
 
