@@ -2,9 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:meeting_app/src/core/navigation/shell_screen.dart';
 import 'package:meeting_app/src/features/home/presentation/screens/home_screen.dart';
 import 'package:meeting_app/src/features/meeting/presentation/screens/create_meeting_screen.dart';
 import 'package:meeting_app/src/features/meeting/presentation/screens/meeting_list_screen.dart';
+import 'package:meeting_app/src/features/meeting/presentation/screens/meeting_details_screen.dart';
+import 'package:meeting_app/src/features/meeting/presentation/screens/meeting_playback_screen.dart';
+import 'package:meeting_app/src/features/meeting/presentation/screens/meeting_transcript_screen.dart';
+import 'package:meeting_app/src/features/settings/presentation/screens/settings_screen.dart';
 
 part 'app_router.g.dart';
 
@@ -17,29 +22,60 @@ GoRouter goRouter(Ref ref) {
       GoRoute(
         path: '/',
         builder: (BuildContext context, GoRouterState state) {
-          return const HomeScreen();
+          return const ShellScreen(
+            currentIndex: 0,
+            child: HomeScreen(),
+          );
         },
       ),
       GoRoute(
         path: '/meetings',
         builder: (BuildContext context, GoRouterState state) {
-          return const MeetingListScreen();
+          return const ShellScreen(
+            currentIndex: 1,
+            child: MeetingListScreen(),
+          );
         },
       ),
-       GoRoute(
+      GoRoute(
+        path: '/settings',
+        builder: (BuildContext context, GoRouterState state) {
+          return const ShellScreen(
+            currentIndex: 2,
+            child: SettingsScreen(),
+          );
+        },
+      ),
+      GoRoute(
         path: '/create-meeting',
         builder: (BuildContext context, GoRouterState state) {
           return const CreateMeetingScreen();
         },
       ),
-      // Exemple de route avec paramètre
-      // GoRoute(
-      //   path: '/meetings/:id',
-      //   builder: (BuildContext context, GoRouterState state) {
-      //     final meetingId = state.pathParameters['id']!;
-      //     return MeetingDetailScreen(meetingId: meetingId);
-      //   },
-      // ),
+      // Détails d'une réunion
+      GoRoute(
+        path: '/meeting-details/:id',
+        builder: (BuildContext context, GoRouterState state) {
+          final meetingId = state.pathParameters['id']!;
+          return MeetingDetailsScreen(meetingId: meetingId);
+        },
+      ),
+      // Lecture d'une réunion avec player audio
+      GoRoute(
+        path: '/meeting-playback/:id',
+        builder: (BuildContext context, GoRouterState state) {
+          final meetingId = state.pathParameters['id']!;
+          return MeetingPlaybackScreen(meetingId: meetingId);
+        },
+      ),
+      // Transcription d'une réunion
+      GoRoute(
+        path: '/meeting-transcript/:id',
+        builder: (BuildContext context, GoRouterState state) {
+          final meetingId = state.pathParameters['id']!;
+          return MeetingTranscriptScreen(meetingId: meetingId);
+        },
+      ),
     ],
     // TODO: Ajouter une logique de redirection pour l'authentification
     // redirect: (BuildContext context, GoRouterState state) {

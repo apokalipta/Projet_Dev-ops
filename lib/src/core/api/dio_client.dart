@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'api_config.dart';
 
 part 'dio_client.g.dart';
 
@@ -9,10 +10,11 @@ part 'dio_client.g.dart';
 Dio dio(Ref ref) {
   final dio = Dio();
   
-  // URL de base de votre API (à charger depuis .env)
-  dio.options.baseUrl = 'http://votre-api.domaine.com/api';
-  dio.options.connectTimeout = const Duration(milliseconds: 5000); // 5s
-  dio.options.receiveTimeout = const Duration(milliseconds: 3000); // 3s
+  // URL de base de votre API (configurée dans api_config.dart)
+  dio.options.baseUrl = ApiConfig.getBaseUrl();
+  dio.options.connectTimeout = ApiConfig.connectTimeout;
+  dio.options.receiveTimeout = ApiConfig.receiveTimeout;
+  dio.options.sendTimeout = ApiConfig.sendTimeout;
 
   dio.interceptors.add(
     InterceptorsWrapper(
