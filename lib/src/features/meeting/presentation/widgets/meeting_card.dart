@@ -104,14 +104,10 @@ class MeetingCard extends StatelessWidget {
         icon = Icons.play_circle;
         break;
       case MeetingStatus.completed:
+      case MeetingStatus.transcribed: // Traiter comme terminée
         color = Colors.green;
         label = 'Terminée';
         icon = Icons.check_circle;
-        break;
-      case MeetingStatus.transcribed:
-        color = Colors.purple;
-        label = 'Transcrite';
-        icon = Icons.text_snippet;
         break;
       case MeetingStatus.failed:
         color = Colors.red;

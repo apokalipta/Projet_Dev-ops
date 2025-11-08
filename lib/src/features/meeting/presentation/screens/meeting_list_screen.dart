@@ -37,7 +37,8 @@ class MeetingListScreen extends ConsumerWidget {
                 return MeetingCard(
                   meeting: meeting,
                   onTap: () {
-                    // TODO: Naviguer vers les détails de la réunion
+                    // Navigation vers les détails de la réunion
+                    context.push('/meeting-details/${meeting.id}');
                   },
                   onDelete: () {
                     showDialog(

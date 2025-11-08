@@ -1,0 +1,334 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import '../../domain/entities/meeting.dart';
+import '../providers/meeting_provider.dart';
+import '../../../../core/data/mock_audio_data.dart';
+import '../../../../core/data/mock_data.dart';
+
+/// Écran de détails d'une réunion
+class MeetingDetailsScreen extends ConsumerWidget {
+  final String meetingId;
+
+  const MeetingDetailsScreen({
+    super.key,
+    required this.meetingId,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final meetingsAsync = ref.watch(asyncMeetingProvider);
+
+    return meetingsAsync.when(
+      data: (meetings) {
+        final meeting = meetings.firstWhere(
+          (m) => m.id == meetingId,
+          orElse: () => throw Exception('Réunion non trouvée'),
+        );
+
+        final hasAudio = MockAudioData.hasAudio(meetingId);
+        final hasTranscript = MockData.getSegments(meetingId).isNotEmpty;
+        final isCompleted = meeting.status == MeetingStatus.completed || 
+                           meeting.status == MeetingStatus.transcribed;
+
+        return _buildContent(context, meeting, hasAudio, hasTranscript, isCompleted);
+      },
+      loading: () => Scaffold(
+        appBar: AppBar(title: const Text('Chargement...')),
+        body: const Center(child: CircularProgressIndicator()),
+      ),
+      error: (error, stack) => Scaffold(
+        appBar: AppBar(title: const Text('Erreur')),
+        body: Center(child: Text('Réunion non trouvée')),
+      ),
+    );
+  }
+
+  Widget _buildContent(
+    BuildContext context,
+    Meeting meeting,
+    bool hasAudio,
+    bool hasTranscript,
+    bool isCompleted,
+  ) {
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(meeting.title),
+        actions: [
+          // Bouton pour éditer (si besoin)
+          IconButton(
+            icon: const Icon(Icons.edit),
+            onPressed: () {
+              // Navigation vers l'édition
+            },
+          ),
+        ],
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Badge de statut
+            _buildStatusBadge(meeting.status),
+            const SizedBox(height: 16),
+
+            // Description
+            if (meeting.description != null && meeting.description!.isNotEmpty)
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    meeting.description!,
+                    style: TextStyle(
+                      color: Colors.grey[700],
+                      fontSize: 16,
+                      height: 1.5,
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                ],
+              ),
+
+            // Informations de la réunion
+            _buildInfoCard(meeting),
+            const SizedBox(height: 24),
+
+            // Statistiques (si réunion terminée)
+            // TODO: Implémenter les statistiques depuis les vraies données
+            // if (isCompleted) ..[
+            //   _buildStatsCard(synthesis),
+            //   const SizedBox(height: 24),
+            // ],
+
+            // Boutons d'action (si réunion terminée)
+            if (isCompleted) ...[
+              if (hasTranscript) ...[
+                _buildTranscriptButton(context, meeting.id),
+                const SizedBox(height: 12),
+              ],
+              if (hasAudio) ...[
+                _buildPlaybackButton(context, meeting.id),
+                const SizedBox(height: 24),
+              ],
+            ],
+
+            // Participants
+            const Text(
+              'Participants',
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 12),
+
+            if (meeting.participants.isEmpty)
+              const Card(
+                child: Padding(
+                  padding: EdgeInsets.all(16),
+                  child: Center(
+                    child: Text('Aucun participant'),
+                  ),
+                ),
+              )
+            else
+              ...meeting.participants.map((p) => _buildParticipantCard(p.name)).toList(),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Badge de statut
+  Widget _buildStatusBadge(MeetingStatus status) {
+    Color color;
+    String label;
+    IconData icon;
+
+    switch (status) {
+      case MeetingStatus.scheduled:
+        color = Colors.blue;
+        label = 'Planifiée';
+        icon = Icons.schedule;
+        break;
+      case MeetingStatus.inProgress:
+        color = Colors.orange;
+        label = 'En cours';
+        icon = Icons.play_circle;
+        break;
+      case MeetingStatus.completed:
+      case MeetingStatus.transcribed: // Traiter comme terminée
+        color = Colors.green;
+        label = 'Terminée';
+        icon = Icons.check_circle;
+        break;
+      case MeetingStatus.failed:
+        color = Colors.red;
+        label = 'Échec';
+        icon = Icons.error;
+        break;
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: color.withOpacity(0.3)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 16, color: color),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: TextStyle(
+              color: color,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Card avec les informations de la réunion
+  Widget _buildInfoCard(Meeting meeting) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          children: [
+            _buildInfoRow(
+              Icons.calendar_today,
+              'Date',
+              _formatDate(meeting.date),
+            ),
+            if (meeting.duration != null) ...[
+              const Divider(),
+              _buildInfoRow(
+                Icons.access_time,
+                'Durée',
+                '${meeting.duration} minutes',
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Ligne d'information
+  Widget _buildInfoRow(IconData icon, String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        children: [
+          Icon(icon, color: Colors.blue, size: 20),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              label,
+              style: const TextStyle(
+                fontSize: 14,
+                color: Colors.grey,
+              ),
+            ),
+          ),
+          Text(
+            value,
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+
+  /// Bouton pour voir la transcription
+  Widget _buildTranscriptButton(BuildContext context, String meetingId) {
+    return SizedBox(
+      width: double.infinity,
+      child: OutlinedButton.icon(
+        onPressed: () {
+          // Navigation vers l'écran de transcription
+          context.push('/meeting-transcript/$meetingId');
+        },
+        icon: const Icon(Icons.text_snippet, size: 24),
+        label: const Text(
+          'Voir la transcription',
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+        ),
+        style: OutlinedButton.styleFrom(
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          side: const BorderSide(color: Colors.purple, width: 2),
+          foregroundColor: Colors.purple,
+        ),
+      ),
+    );
+  }
+
+  /// Bouton pour réécouter la réunion
+  Widget _buildPlaybackButton(BuildContext context, String meetingId) {
+    return SizedBox(
+      width: double.infinity,
+      child: ElevatedButton.icon(
+        onPressed: () {
+          // Navigation vers l'écran de lecture
+          context.push('/meeting-playback/$meetingId');
+        },
+        icon: const Icon(Icons.play_circle_filled, size: 28),
+        label: const Text(
+          'Réécouter la réunion',
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+        ),
+        style: ElevatedButton.styleFrom(
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          backgroundColor: Colors.blue,
+          foregroundColor: Colors.white,
+        ),
+      ),
+    );
+  }
+
+  /// Card d'un participant
+  Widget _buildParticipantCard(String participantName) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      child: ListTile(
+        leading: CircleAvatar(
+          child: Text(
+            participantName.isNotEmpty ? participantName[0].toUpperCase() : '?',
+          ),
+        ),
+        title: Text(
+          participantName,
+          style: const TextStyle(fontWeight: FontWeight.bold),
+        ),
+      ),
+    );
+  }
+
+  /// Formater la date
+  String _formatDate(DateTime date) {
+    final months = [
+      'Jan',
+      'Fév',
+      'Mar',
+      'Avr',
+      'Mai',
+      'Juin',
+      'Juil',
+      'Août',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Déc'
+    ];
+
+    return '${date.day} ${months[date.month - 1]} ${date.year} à ${date.hour}:${date.minute.toString().padLeft(2, '0')}';
+  }
+}

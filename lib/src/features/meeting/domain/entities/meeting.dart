@@ -13,6 +13,9 @@ class Meeting with _$Meeting {
     @Default('fr') String language,
     required MeetingStatus status,
     int? duration, // Durée en minutes
+    String? description,
+    @Default(false) bool startTranscription,
+    @Default(false) bool sendReminders,
     required List<Participant> participants,
     DateTime? createdAt,
     DateTime? updatedAt,

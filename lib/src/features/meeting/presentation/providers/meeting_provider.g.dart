@@ -6,7 +6,7 @@ part of 'meeting_provider.dart';
 // RiverpodGenerator
 // **************************************************************************
 
-String _$asyncMeetingHash() => r'dc4b1b09357bc0ebcdba7b3797fff0d53ed1d9de';
+String _$asyncMeetingHash() => r'0e57a07d97a1b13e5a852b6b69389d0280abf80f';
 
 /// See also [AsyncMeeting].
 @ProviderFor(AsyncMeeting)

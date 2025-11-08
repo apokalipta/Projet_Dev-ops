@@ -22,6 +22,9 @@ mixin _$Meeting {
   String get language => throw _privateConstructorUsedError;
   MeetingStatus get status => throw _privateConstructorUsedError;
   int? get duration => throw _privateConstructorUsedError; // Durée en minutes
+  String? get description => throw _privateConstructorUsedError;
+  bool get startTranscription => throw _privateConstructorUsedError;
+  bool get sendReminders => throw _privateConstructorUsedError;
   List<Participant> get participants => throw _privateConstructorUsedError;
   DateTime? get createdAt => throw _privateConstructorUsedError;
   DateTime? get updatedAt => throw _privateConstructorUsedError;
@@ -44,6 +47,9 @@ abstract class $MeetingCopyWith<$Res> {
       String language,
       MeetingStatus status,
       int? duration,
+      String? description,
+      bool startTranscription,
+      bool sendReminders,
       List<Participant> participants,
       DateTime? createdAt,
       DateTime? updatedAt});
@@ -70,6 +76,9 @@ class _$MeetingCopyWithImpl<$Res, $Val extends Meeting>
     Object? language = null,
     Object? status = null,
     Object? duration = freezed,
+    Object? description = freezed,
+    Object? startTranscription = null,
+    Object? sendReminders = null,
     Object? participants = null,
     Object? createdAt = freezed,
     Object? updatedAt = freezed,
@@ -99,6 +108,18 @@ class _$MeetingCopyWithImpl<$Res, $Val extends Meeting>
           ? _value.duration
           : duration // ignore: cast_nullable_to_non_nullable
               as int?,
+      description: freezed == description
+          ? _value.description
+          : description // ignore: cast_nullable_to_non_nullable
+              as String?,
+      startTranscription: null == startTranscription
+          ? _value.startTranscription
+          : startTranscription // ignore: cast_nullable_to_non_nullable
+              as bool,
+      sendReminders: null == sendReminders
+          ? _value.sendReminders
+          : sendReminders // ignore: cast_nullable_to_non_nullable
+              as bool,
       participants: null == participants
           ? _value.participants
           : participants // ignore: cast_nullable_to_non_nullable
@@ -129,6 +150,9 @@ abstract class _$$MeetingImplCopyWith<$Res> implements $MeetingCopyWith<$Res> {
       String language,
       MeetingStatus status,
       int? duration,
+      String? description,
+      bool startTranscription,
+      bool sendReminders,
       List<Participant> participants,
       DateTime? createdAt,
       DateTime? updatedAt});
@@ -153,6 +177,9 @@ class __$$MeetingImplCopyWithImpl<$Res>
     Object? language = null,
     Object? status = null,
     Object? duration = freezed,
+    Object? description = freezed,
+    Object? startTranscription = null,
+    Object? sendReminders = null,
     Object? participants = null,
     Object? createdAt = freezed,
     Object? updatedAt = freezed,
@@ -182,6 +209,18 @@ class __$$MeetingImplCopyWithImpl<$Res>
           ? _value.duration
           : duration // ignore: cast_nullable_to_non_nullable
               as int?,
+      description: freezed == description
+          ? _value.description
+          : description // ignore: cast_nullable_to_non_nullable
+              as String?,
+      startTranscription: null == startTranscription
+          ? _value.startTranscription
+          : startTranscription // ignore: cast_nullable_to_non_nullable
+              as bool,
+      sendReminders: null == sendReminders
+          ? _value.sendReminders
+          : sendReminders // ignore: cast_nullable_to_non_nullable
+              as bool,
       participants: null == participants
           ? _value._participants
           : participants // ignore: cast_nullable_to_non_nullable
@@ -208,6 +247,9 @@ class _$MeetingImpl implements _Meeting {
       this.language = 'fr',
       required this.status,
       this.duration,
+      this.description,
+      this.startTranscription = false,
+      this.sendReminders = false,
       required final List<Participant> participants,
       this.createdAt,
       this.updatedAt})
@@ -227,8 +269,15 @@ class _$MeetingImpl implements _Meeting {
   @override
   final int? duration;
 // Durée en minutes
+  @override
+  final String? description;
+  @override
+  @JsonKey()
+  final bool startTranscription;
+  @override
+  @JsonKey()
+  final bool sendReminders;
   final List<Participant> _participants;
-// Durée en minutes
   @override
   List<Participant> get participants {
     if (_participants is EqualUnmodifiableListView) return _participants;
@@ -243,7 +292,7 @@ class _$MeetingImpl implements _Meeting {
 
   @override
   String toString() {
-    return 'Meeting(id: $id, title: $title, date: $date, language: $language, status: $status, duration: $duration, participants: $participants, createdAt: $createdAt, updatedAt: $updatedAt)';
+    return 'Meeting(id: $id, title: $title, date: $date, language: $language, status: $status, duration: $duration, description: $description, startTranscription: $startTranscription, sendReminders: $sendReminders, participants: $participants, createdAt: $createdAt, updatedAt: $updatedAt)';
   }
 
   @override
@@ -259,6 +308,12 @@ class _$MeetingImpl implements _Meeting {
             (identical(other.status, status) || other.status == status) &&
             (identical(other.duration, duration) ||
                 other.duration == duration) &&
+            (identical(other.description, description) ||
+                other.description == description) &&
+            (identical(other.startTranscription, startTranscription) ||
+                other.startTranscription == startTranscription) &&
+            (identical(other.sendReminders, sendReminders) ||
+                other.sendReminders == sendReminders) &&
             const DeepCollectionEquality()
                 .equals(other._participants, _participants) &&
             (identical(other.createdAt, createdAt) ||
@@ -276,6 +331,9 @@ class _$MeetingImpl implements _Meeting {
       language,
       status,
       duration,
+      description,
+      startTranscription,
+      sendReminders,
       const DeepCollectionEquality().hash(_participants),
       createdAt,
       updatedAt);
@@ -297,6 +355,9 @@ abstract class _Meeting implements Meeting {
       final String language,
       required final MeetingStatus status,
       final int? duration,
+      final String? description,
+      final bool startTranscription,
+      final bool sendReminders,
       required final List<Participant> participants,
       final DateTime? createdAt,
       final DateTime? updatedAt}) = _$MeetingImpl;
@@ -313,6 +374,12 @@ abstract class _Meeting implements Meeting {
   MeetingStatus get status;
   @override
   int? get duration; // Durée en minutes
+  @override
+  String? get description;
+  @override
+  bool get startTranscription;
+  @override
+  bool get sendReminders;
   @override
   List<Participant> get participants;
   @override
