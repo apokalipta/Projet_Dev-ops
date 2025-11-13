@@ -6,7 +6,7 @@ Service Meetings du projet Projet_Dev-ops. Il gere la planification des reunions
 
 - Creation de reunion avec titre, description, date, langue, duree previsionnelle et participants optionnels.
 - Consultation detaillee d'une reunion et liste globale des reunions.
-- Gestion des participants : ajout, suppression, liste triee.
+- Gestion des participants : ajout, suppression, liste triee (verrouillee une fois la reunion terminee).
 - Recherche par titre.
 - Demarrage et cloture d'une reunion via des endpoints dedies (`scheduled` -> `in_progress` -> `completed`).
 
@@ -128,8 +128,8 @@ Le jar executable se trouve sous `build/quarkus-app/`.
 | GET | `/api/meeting/{id}` | Detail d'une reunion |
 | GET | `/api/meeting/{id}/participant/all` | Lister les participants |
 | GET | `/api/participant/all` | Lister tous les participants enregistrés |
-| POST | `/api/meeting/{id}/participant` | Ajouter un participant |
-| DELETE | `/api/meeting/{id}/participant/{participantId}` | Retirer un participant |
+| POST | `/api/meeting/{id}/participant` | Ajouter un participant (refusé si la réunion est `completed`) |
+| DELETE | `/api/meeting/{id}/participant/{participantId}` | Retirer un participant (refusé si la réunion est `completed`) |
 | GET | `/api/meeting/search/byTitle` | Rechercher par titre (`title` en parametre) |
 | PUT | `/api/meeting/{id}/start` | Demarrer la reunion (transition `scheduled` -> `in_progress`) |
 | PUT | `/api/meeting/{id}/end` | Clore la reunion (transition `in_progress` -> `completed`) |
@@ -211,6 +211,7 @@ Invoke-RestMethod -Method Post -Uri "http://localhost:8080/api/meeting/1/partici
 
 # Supprimer un participant (id 2)
 Invoke-RestMethod -Method Delete -Uri "http://localhost:8080/api/meeting/1/participant/2"
+# Les opérations d'ajout/retrait renvoient HTTP 409 si la réunion est déjà terminée
 
 # Recherche par titre
 Invoke-RestMethod -Method Get -Uri "http://localhost:8080/api/meeting/search/byTitle?title=planning"

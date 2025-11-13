@@ -119,6 +119,11 @@ public class MeetingService {
         Meeting meeting = Optional.ofNullable(meetingRepository.findById(meetingId))
                 .orElseThrow(() -> notFound(RESOURCE_MEETING, meetingId));
 
+        String currentStatus = meeting.getMeetingStatus();
+        if (currentStatus != null && STATUS_TERMINATED.equalsIgnoreCase(currentStatus)) {
+            throw new WebApplicationException("Cannot modify participants once the meeting is completed", Response.Status.CONFLICT);
+        }
+
         Participant participant = resolveParticipant(request);
         attachParticipant(meeting, participant);
 
@@ -132,6 +137,11 @@ public class MeetingService {
                 .orElseThrow(() -> notFound(RESOURCE_MEETING, meetingId));
         Participant participant = Optional.ofNullable(participantRepository.findById(participantId))
                 .orElseThrow(() -> notFound(RESOURCE_PARTICIPANT, participantId));
+
+        String currentStatus = meeting.getMeetingStatus();
+        if (currentStatus != null && STATUS_TERMINATED.equalsIgnoreCase(currentStatus)) {
+            throw new WebApplicationException("Cannot modify participants once the meeting is completed", Response.Status.CONFLICT);
+        }
 
         if (!meeting.getParticipants().contains(participant)) {
             throw new WebApplicationException("Participant not assigned to this meeting", Response.Status.NOT_FOUND);
