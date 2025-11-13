@@ -11,9 +11,9 @@ import jakarta.persistence.Table;
 @Table(name = "participant")
 public class Participant {
 	
-    public Participant(){
-
-    };
+    public Participant() {
+        // Required by JPA
+    }
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -24,6 +24,9 @@ public class Participant {
 
     @Column(name = "firstname")
     private String participantfirstname;
+
+    @Column(name = "email")
+    private String participantemail;
 
     public Long getId() {
         return participantid;
@@ -47,6 +50,14 @@ public class Participant {
 
     public void setFirstname(String firstname) {
         this.participantfirstname = firstname;
+    }
+
+    public String getEmail() {
+        return participantemail;
+    }
+
+    public void setEmail(String email) {
+        this.participantemail = email;
     }
 	
 }

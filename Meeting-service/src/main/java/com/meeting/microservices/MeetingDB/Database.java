@@ -6,9 +6,9 @@ import java.sql.DriverManager;
 import java.sql.SQLException;
 
 public class Database {
-    private static final String URL = "jdbc:mysql://localhost:3306/Meeting";
-    private static final String USER = "root";
-    private static final String PASSWORD = "@SQLMaxLu2707!";
+    private static final String URL = System.getenv().getOrDefault("MEETING_DB_URL", "jdbc:mysql://localhost:3306/Meeting");
+    private static final String USER = System.getenv().getOrDefault("MEETING_DB_USERNAME", "root");
+    private static final String PASSWORD = System.getenv().getOrDefault("MEETING_DB_PASSWORD", "");
     private Connection conn;
     
     public String getURL() {
@@ -35,7 +35,7 @@ public class Database {
     
     
     public Database() {
-    	
+        // Default constructor kept for compatibility with existing usage patterns.
     }
 
     

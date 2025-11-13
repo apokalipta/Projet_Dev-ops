@@ -12,6 +12,12 @@
 			<attribute name="gradle_used_by_scope" value="main,test,integrationTest,native-test"/>
 		</attributes>
 	</classpathentry>
+	<classpathentry kind="src" output="bin/main_" path="src/main/resources">
+		<attributes>
+			<attribute name="gradle_scope" value="main"/>
+			<attribute name="gradle_used_by_scope" value="main,test,integrationTest,native-test"/>
+		</attributes>
+	</classpathentry>
 	<classpathentry kind="src" output="bin/test" path="build/classes/java/quarkus-test-generated-sources">
 		<attributes>
 			<attribute name="gradle_scope" value="test"/>
