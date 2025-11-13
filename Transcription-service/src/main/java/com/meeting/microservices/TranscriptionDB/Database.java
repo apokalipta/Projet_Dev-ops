@@ -10,7 +10,7 @@ import java.sql.SQLException;
 public class Database extends PanacheEntity {
     private static final String URL = "jdbc:mysql://localhost:3306/Transcription";
     private static final String USER = "root";
-    private static final String PASSWORD = "@SQLMaxLu2707!";
+    private static final String PASSWORD = "root!";
     private Connection conn;
     
     public String getURL() {

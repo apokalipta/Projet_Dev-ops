@@ -1,25 +1,25 @@
 package com.meeting.microservices.TranscriptionDB;
 
 import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.inject.Inject;
 import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import java.util.List;
 
 @ApplicationScoped
 public class TranscriptionRepository {
 
-    @Inject
+    @PersistenceContext
     EntityManager em;
 
-    public List<Transcription> listAll() {
-        return em.createQuery("SELECT t FROM Transcription t", Transcription.class).getResultList();
+    public void save(Transcription transcription) {
+        em.persist(transcription);
     }
 
-    public void persist(Transcription t) {
-        em.persist(t);
-    }
-
-    public Transcription findById(Long id) {
-        return em.find(Transcription.class, id);
+    public Transcription findByReunionId(Long idReunion) {
+        String query = "FROM Transcription t WHERE t.idReunion = :id";
+        List<Transcription> results = em.createQuery(query, Transcription.class)
+                .setParameter("id", idReunion)
+                .getResultList();
+        return results.isEmpty() ? null : results.get(0);
     }
 }

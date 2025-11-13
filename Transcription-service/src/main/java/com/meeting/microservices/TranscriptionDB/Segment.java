@@ -1,7 +1,6 @@
 package com.meeting.microservices.TranscriptionDB;
 
 import jakarta.persistence.*;
-import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "segment")
@@ -9,47 +8,73 @@ public class Segment {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "id_segment")
     private Long id;
 
-    @Column(name = "start_time")
-    private LocalDateTime startTime;
-
-    @Column(name = "end_time")
-    private LocalDateTime endTime;
-
-    @Column(name = "text", columnDefinition = "TEXT")
-    private String text;
-
-    @Column(name = "confidence")
-    private Double confidence;
-
-    @ManyToOne
-    @JoinColumn(name = "transcription_id")
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "id_transcript", nullable = false)
     private Transcription transcription;
 
-    @ManyToOne
-    @JoinColumn(name = "locuteur_id")
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "id_locuteur", nullable = false)
     private Locuteur locuteur;
 
-    // Getters / Setters
-    public Long getId() { return id; }
-    public void setId(Long id) { this.id = id; }
+    @Column(name = "time_depart")
+    private Double timeDepart;
 
-    public LocalDateTime getStartTime() { return startTime; }
-    public void setStartTime(LocalDateTime startTime) { this.startTime = startTime; }
+    @Column(name = "duree")
+    private Double duree;
 
-    public LocalDateTime getEndTime() { return endTime; }
-    public void setEndTime(LocalDateTime endTime) { this.endTime = endTime; }
+    @Column(name = "texte", columnDefinition = "TEXT")
+    private String texte;
 
-    public String getText() { return text; }
-    public void setText(String text) { this.text = text; }
+    // -------------------- Getters & Setters --------------------
 
-    public Double getConfidence() { return confidence; }
-    public void setConfidence(Double confidence) { this.confidence = confidence; }
+    public Long getId() {
+        return id;
+    }
 
-    public Transcription getTranscription() { return transcription; }
-    public void setTranscription(Transcription transcription) { this.transcription = transcription; }
+    public void setId(Long id) {
+        this.id = id;
+    }
 
-    public Locuteur getLocuteur() { return locuteur; }
-    public void setLocuteur(Locuteur locuteur) { this.locuteur = locuteur; }
+    public Transcription getTranscription() {
+        return transcription;
+    }
+
+    public void setTranscription(Transcription transcription) {
+        this.transcription = transcription;
+    }
+
+    public Locuteur getLocuteur() {
+        return locuteur;
+    }
+
+    public void setLocuteur(Locuteur locuteur) {
+        this.locuteur = locuteur;
+    }
+
+    public Double getTimeDepart() {
+        return timeDepart;
+    }
+
+    public void setTimeDepart(Double timeDepart) {
+        this.timeDepart = timeDepart;
+    }
+
+    public Double getDuree() {
+        return duree;
+    }
+
+    public void setDuree(Double duree) {
+        this.duree = duree;
+    }
+
+    public String getTexte() {
+        return texte;
+    }
+
+    public void setTexte(String texte) {
+        this.texte = texte;
+    }
 }
