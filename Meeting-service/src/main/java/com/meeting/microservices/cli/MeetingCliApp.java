@@ -33,20 +33,6 @@ public final class MeetingCliApp {
     private static final String PROMPT_LASTNAME = "Nom : ";
     private static final String PROMPT_EMAIL = "Email (optionnel) : ";
     private static final String STATUS_SCHEDULED = "scheduled";
-    private static final List<String> STATUS_OPTIONS = List.of(
-            STATUS_SCHEDULED,
-            "in_progress",
-            "completed",
-            "postponed",
-            "cancelled"
-    );
-    private static final List<String> STATUS_DISPLAY = List.of(
-            STATUS_OPTIONS.get(0) + " (Planifiée)",
-            STATUS_OPTIONS.get(1) + " (En cours)",
-            STATUS_OPTIONS.get(2) + " (Terminée)",
-            STATUS_OPTIONS.get(3) + " (Reportée)",
-            STATUS_OPTIONS.get(4) + " (Annulée)"
-    );
 
     private static final HttpClient CLIENT = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(5))
@@ -72,7 +58,7 @@ public final class MeetingCliApp {
                     case "6" -> removeParticipant(scanner);
                     case "7" -> searchByTitle(scanner);
                     case "8" -> startMeeting(scanner);
-                    case "9" -> updateStatus(scanner);
+                    case "9" -> endMeeting(scanner);
                     case "10" -> listRegisteredParticipants();
                     case "0" -> running = false;
                     default -> System.out.println("Option inconnue, merci de réessayer.\n");
@@ -91,7 +77,7 @@ public final class MeetingCliApp {
         System.out.println("6. Retirer un participant d'une réunion");
         System.out.println("7. Rechercher des réunions par titre");
         System.out.println("8. Démarrer une réunion");
-        System.out.println("9. Modifier le statut d'une réunion");
+    System.out.println("9. Terminer une réunion");
         System.out.println("10. Lister les participants enregistrés");
         System.out.println("0. Quitter");
     }
@@ -189,18 +175,15 @@ public final class MeetingCliApp {
     private static void startMeeting(Scanner scanner) {
         Long meetingId = readLong(scanner, PROMPT_MEETING_ID);
         if (meetingId != null) {
-            sendPost("/" + meetingId + "/start", "{}");
+            sendPut("/" + meetingId + "/start", "{}");
         }
     }
 
-    private static void updateStatus(Scanner scanner) {
+    private static void endMeeting(Scanner scanner) {
         Long meetingId = readLong(scanner, PROMPT_MEETING_ID);
-        if (meetingId == null) {
-            return;
+        if (meetingId != null) {
+            sendPut("/" + meetingId + "/end", "{}");
         }
-        String status = chooseStatus(scanner);
-        String payload = "{" + buildStatusField(status) + "}";
-        sendPut("/" + meetingId + "/status", payload);
     }
 
     private static void searchByTitle(Scanner scanner) {
@@ -680,34 +663,6 @@ public final class MeetingCliApp {
         } catch (NumberFormatException e) {
             System.out.println("Nombre invalide : " + value);
             return null;
-        }
-    }
-
-    private static String chooseStatus(Scanner scanner) {
-        while (true) {
-            System.out.println("\nStatuts disponibles :");
-            for (int i = 0; i < STATUS_OPTIONS.size(); i++) {
-                System.out.println((i + 1) + ". " + STATUS_DISPLAY.get(i));
-            }
-            System.out.print("Statut cible : ");
-            String input = scanner.nextLine().trim();
-            if (input.isEmpty()) {
-                return STATUS_OPTIONS.get(0);
-            }
-            try {
-                int index = Integer.parseInt(input) - 1;
-                if (index >= 0 && index < STATUS_OPTIONS.size()) {
-                    return STATUS_OPTIONS.get(index);
-                }
-            } catch (NumberFormatException ignored) {
-                // fall back to direct match
-            }
-            for (String option : STATUS_OPTIONS) {
-                if (option.equalsIgnoreCase(input)) {
-                    return option;
-                }
-            }
-            System.out.println("Statut invalide, merci de choisir parmi la liste.");
         }
     }
 

@@ -4,7 +4,6 @@ import com.meeting.microservices.meeting.dto.MeetingRequest;
 import com.meeting.microservices.meeting.dto.MeetingResponse;
 import com.meeting.microservices.meeting.dto.ParticipantRequest;
 import com.meeting.microservices.meeting.dto.ParticipantResponse;
-import com.meeting.microservices.meeting.dto.StatusUpdateRequest;
 import com.meeting.microservices.meeting.service.MeetingService;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
@@ -81,7 +80,7 @@ public class MeetingResource {
         return Response.noContent().build();
     }
 
-    @POST
+    @PUT
     @Path("/{meetingId}/start")
     @Transactional
     public MeetingResponse startMeeting(@PathParam("meetingId") Long meetingId) {
@@ -89,11 +88,10 @@ public class MeetingResource {
     }
 
     @PUT
-    @Path("/{meetingId}/status")
+    @Path("/{meetingId}/end")
     @Transactional
-    public MeetingResponse updateStatus(@PathParam("meetingId") Long meetingId,
-                                        @Valid StatusUpdateRequest request) {
-        return meetingService.updateStatus(meetingId, request.status());
+    public MeetingResponse endMeeting(@PathParam("meetingId") Long meetingId) {
+        return meetingService.endMeeting(meetingId);
     }
 
     @GET

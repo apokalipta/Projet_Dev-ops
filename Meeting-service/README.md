@@ -8,8 +8,7 @@ Service Meetings du projet Projet_Dev-ops. Il gere la planification des reunions
 - Consultation detaillee d'une reunion et liste globale des reunions.
 - Gestion des participants : ajout, suppression, liste triee.
 - Recherche par titre.
-- Cloture d'une reunion avec calcul automatique de la duree reelle (base sur `meetingDate`).
-- Mise a jour du statut parmi les valeurs autorisees (`Planifiee`, `En cours`, `Terminee`, `Reportee`, `Annulee`).
+- Demarrage et cloture d'une reunion via des endpoints dedies (`scheduled` -> `in_progress` -> `completed`).
 
 ## Architecture
 
@@ -132,13 +131,12 @@ Le jar executable se trouve sous `build/quarkus-app/`.
 | POST | `/api/meeting/{id}/participant` | Ajouter un participant |
 | DELETE | `/api/meeting/{id}/participant/{participantId}` | Retirer un participant |
 | GET | `/api/meeting/search/byTitle` | Rechercher par titre (`title` en parametre) |
-| POST | `/api/meeting/{id}/start` | Demarrer la reunion (passe le statut `En cours`) |
-| PUT | `/api/meeting/{id}/status` | Mettre a jour le statut |
+| PUT | `/api/meeting/{id}/start` | Demarrer la reunion (transition `scheduled` -> `in_progress`) |
+| PUT | `/api/meeting/{id}/end` | Clore la reunion (transition `in_progress` -> `completed`) |
 
 ### DTOs principaux
 
 - `MeetingRequest` : `title`, `description`, `scheduledAt` (alias `meetingDate`), `durationMinutes` ou `previsualDuration`, `status`, `participants[]`
-- `StatusUpdateRequest` : `status`
 - Reponse `MeetingResponse` : `id`, `title`, `description`, `scheduledAt`, `durationMinutes`, `status`, `participants[]` (`id`, `fullName`, `email`)
 
 ## Utilitaire CLI
@@ -158,7 +156,7 @@ Fonctionnalites : creation, consultation, recherche, gestion des participants, d
 - `2`: liste de toutes les reunions via `/api/meeting/all`.
 - `5` et `10`: reutilisation du repertoire des participants, incluant ceux sans reunion (`/api/participant/all`).
 - `7`: recherche par titre avec mot-cle.
-- `8` et `9`: controle du cycle de vie (demarrage, changement de statut).
+- `8` et `9`: controle du cycle de vie (demarrage, cloture).
 - `0`: sortie de l'application.
 
 Lance d'abord Quarkus (`../gradlew quarkusDev`), sinon les appels HttpClient echoueront.
@@ -218,12 +216,10 @@ Invoke-RestMethod -Method Delete -Uri "http://localhost:8080/api/meeting/1/parti
 Invoke-RestMethod -Method Get -Uri "http://localhost:8080/api/meeting/search/byTitle?title=planning"
 
 # Demarrer la reunion
-Invoke-RestMethod -Method Post -Uri "http://localhost:8080/api/meeting/1/start"
+Invoke-RestMethod -Method Put -Uri "http://localhost:8080/api/meeting/1/start"
 
-# Mettre a jour le statut
-$status = '{"status":"En cours"}'
-Invoke-RestMethod -Method Put -Uri "http://localhost:8080/api/meeting/1/status" `
-  -ContentType "application/json" -Body $status
+# Clore la reunion
+Invoke-RestMethod -Method Put -Uri "http://localhost:8080/api/meeting/1/end"
 ```
 
 Chaque appel renvoie un JSON representant l'etat courant de la reunion; ajuster les identifiants selon les donnees retournees par l'API.

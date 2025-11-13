@@ -16,13 +16,11 @@ import jakarta.ws.rs.core.Response;
 
 import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.Set;
 
 @ApplicationScoped
 public class MeetingService {
@@ -40,14 +38,6 @@ public class MeetingService {
     private static final String FRONT_STATUS_COMPLETED = "completed";
     private static final String FRONT_STATUS_POSTPONED = "postponed";
     private static final String FRONT_STATUS_CANCELLED = "cancelled";
-    private static final Set<String> ALLOWED_STATUSES = Set.of(
-        DEFAULT_STATUS,
-        STATUS_IN_PROGRESS,
-        STATUS_TERMINATED,
-        STATUS_POSTPONED,
-        STATUS_CANCELLED
-    );
-    private static final Map<String, String> STATUS_ALIAS;
 
     private final MeetingRepository meetingRepository;
     private final ParticipantRepository participantRepository;
@@ -58,30 +48,6 @@ public class MeetingService {
         this.participantRepository = participantRepository;
     }
 
-    static {
-        Map<String, String> aliases = new HashMap<>();
-        aliases.put(DEFAULT_STATUS.toLowerCase(Locale.ROOT), DEFAULT_STATUS);
-        aliases.put("planifiee", DEFAULT_STATUS);
-        aliases.put(FRONT_STATUS_SCHEDULED, DEFAULT_STATUS);
-
-        aliases.put(STATUS_IN_PROGRESS.toLowerCase(Locale.ROOT), STATUS_IN_PROGRESS);
-        aliases.put("en_cours", STATUS_IN_PROGRESS);
-        aliases.put(FRONT_STATUS_IN_PROGRESS, STATUS_IN_PROGRESS);
-
-        aliases.put(STATUS_TERMINATED.toLowerCase(Locale.ROOT), STATUS_TERMINATED);
-        aliases.put("terminee", STATUS_TERMINATED);
-        aliases.put(FRONT_STATUS_COMPLETED, STATUS_TERMINATED);
-
-        aliases.put(STATUS_POSTPONED.toLowerCase(Locale.ROOT), STATUS_POSTPONED);
-        aliases.put("reportee", STATUS_POSTPONED);
-        aliases.put(FRONT_STATUS_POSTPONED, STATUS_POSTPONED);
-
-        aliases.put(STATUS_CANCELLED.toLowerCase(Locale.ROOT), STATUS_CANCELLED);
-        aliases.put("annulee", STATUS_CANCELLED);
-        aliases.put(FRONT_STATUS_CANCELLED, STATUS_CANCELLED);
-
-        STATUS_ALIAS = Map.copyOf(aliases);
-    }
 
     @Transactional
     public MeetingResponse createMeeting(MeetingRequest request) {
@@ -95,8 +61,8 @@ public class MeetingService {
         meeting.setMeetingDate(request.meetingDate());
         meeting.setMeetingPrevisualDuration(resolvePlannedDuration(request));
         meeting.setMeetingRealDuration(null);
-    meeting.setMeetingLanguage(DEFAULT_LANGUAGE);
-    meeting.setMeetingStatus(resolveStatus(request.status()));
+        meeting.setMeetingLanguage(DEFAULT_LANGUAGE);
+        meeting.setMeetingStatus(DEFAULT_STATUS);
         meeting.setMeetingParticipants("0");
 
         meetingRepository.persist(meeting);
@@ -204,11 +170,24 @@ public class MeetingService {
     }
 
     @Transactional
-    public MeetingResponse updateStatus(Long meetingId, String status) {
+    public MeetingResponse endMeeting(Long meetingId) {
         Meeting meeting = Optional.ofNullable(meetingRepository.findById(meetingId))
                 .orElseThrow(() -> notFound(RESOURCE_MEETING, meetingId));
 
-        meeting.setMeetingStatus(requireAllowedStatus(status));
+        String currentStatus = meeting.getMeetingStatus();
+        if (currentStatus != null) {
+            if (STATUS_CANCELLED.equalsIgnoreCase(currentStatus)) {
+                throw new WebApplicationException("Meeting is cancelled", Response.Status.CONFLICT);
+            }
+            if (STATUS_TERMINATED.equalsIgnoreCase(currentStatus)) {
+                return toResponse(meeting);
+            }
+            if (!STATUS_IN_PROGRESS.equalsIgnoreCase(currentStatus)) {
+                throw new WebApplicationException("Meeting has not started", Response.Status.CONFLICT);
+            }
+        }
+
+        meeting.setMeetingStatus(STATUS_TERMINATED);
         meetingRepository.flush();
 
         return toResponse(meeting);
@@ -288,25 +267,6 @@ public class MeetingService {
             throw new WebApplicationException("Field '" + field + "' is required", Response.Status.BAD_REQUEST);
         }
         return value;
-    }
-
-    private String requireAllowedStatus(String status) {
-        String value = requireNonBlank(status, "status").trim();
-        String normalized = value.toLowerCase(Locale.ROOT);
-        if (STATUS_ALIAS.containsKey(normalized)) {
-            return STATUS_ALIAS.get(normalized);
-        }
-        return ALLOWED_STATUSES.stream()
-                .filter(allowed -> allowed.equalsIgnoreCase(value))
-                .findFirst()
-                .orElseThrow(() -> new WebApplicationException("Unsupported status: " + status, Response.Status.BAD_REQUEST));
-    }
-
-    private String resolveStatus(String requestedStatus) {
-        if (requestedStatus == null || requestedStatus.isBlank()) {
-            return DEFAULT_STATUS;
-        }
-        return requireAllowedStatus(requestedStatus);
     }
 
     private String resolvePlannedDuration(MeetingRequest request) {
