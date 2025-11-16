@@ -1,0 +1,20 @@
+<!-- Pour MultipartFormDataInput et InputPart (RESTEasy) -->
+<dependency>
+    <groupId>io.quarkus</groupId>
+    <artifactId>quarkus-resteasy-multipart</artifactId>
+</dependency>
+
+<!-- Pour Apache HttpClient (HttpClients, HttpPost, etc.) -->
+<dependency>
+    <groupId>org.apache.httpcomponents</groupId>
+    <artifactId>httpclient</artifactId>
+    <version>4.5.14</version>
+</dependency>
+
+<!-- Pour MultipartEntityBuilder et ContentType -->
+<dependency>
+    <groupId>org.apache.httpcomponents</groupId>
+    <artifactId>httpmime</artifactId>
+    <version>4.5.14</version>
+</dependency>
+

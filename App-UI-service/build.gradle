@@ -1,0 +1,32 @@
+// Les plugins et la configuration de base sont déjà appliqués par le build.gradle racine
+// Il suffit d'ajouter les dépendances spécifiques à ce sous-projet
+
+dependencies {
+    // REST API
+    implementation 'io.quarkus:quarkus-resteasy-reactive'
+    implementation 'io.quarkus:quarkus-resteasy-reactive-jackson'
+    
+    // OpenAPI/Swagger
+    implementation 'io.quarkus:quarkus-smallrye-openapi'
+    
+    // Messaging / RabbitMQ (Quarkus 3 compatible)
+    implementation 'io.quarkus:quarkus-smallrye-reactive-messaging'
+    implementation 'io.quarkus:quarkus-smallrye-reactive-messaging-rabbitmq'
+    
+    // Base de données (exemple avec MySQL)
+    implementation 'io.quarkus:quarkus-hibernate-orm'
+    implementation 'io.quarkus:quarkus-jdbc-mysql'
+    
+    
+    // Validation
+    implementation 'io.quarkus:quarkus-hibernate-validator'
+    
+    // Tests spécifiques
+    testImplementation 'io.quarkus:quarkus-rest-client-reactive'
+}
+
+// Configuration spécifique au service (optionnel)
+//quarkus {
+    // Par exemple, configurer le port HTTP
+    // http.port = 8081
+//}

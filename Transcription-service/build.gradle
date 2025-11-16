@@ -1,0 +1,49 @@
+// Les plugins et la configuration de base sont déjà appliqués par le build.gradle racine
+// Il suffit d'ajouter les dépendances spécifiques à ce sous-projet
+
+
+dependencies {
+
+    //implementation 'io.quarkus:quarkus-rest'
+    // REST API (Quarkus 3 reactive)
+    implementation 'io.quarkus:quarkus-resteasy-reactive'
+    implementation 'io.quarkus:quarkus-resteasy-reactive-jackson'
+    // RESTEasy Reactive Multipart (file upload support)
+    // Note: multipart support might be included in quarkus-resteasy-reactive, 
+    // but we can also use FileUpload directly
+    // Alternative: implementation 'io.quarkus:quarkus-resteasy-reactive-multipart' if available
+    
+
+    
+    // OpenAPI/Swagger
+    implementation 'io.quarkus:quarkus-smallrye-openapi'
+    
+    // Messaging / RabbitMQ (Quarkus 3 compatible)
+    implementation 'io.quarkus:quarkus-smallrye-reactive-messaging'
+    implementation 'io.quarkus:quarkus-smallrye-reactive-messaging-rabbitmq'
+    
+    // Base de données (exemple avec MySQL)
+    implementation 'io.quarkus:quarkus-hibernate-orm'
+    implementation 'io.quarkus:quarkus-jdbc-mysql'
+
+    // JSON processing
+    implementation 'io.quarkus:quarkus-jackson'
+
+    // Apache HttpClient (si tu l’utilises)
+    implementation 'org.apache.httpcomponents:httpclient:4.5.14'
+    implementation 'org.apache.httpcomponents:httpmime:4.5.14'
+    
+    // Validation (Quarkus integration)
+    implementation 'io.quarkus:quarkus-hibernate-validator'
+    
+    // Tests / client REST (reactive)
+    testImplementation 'io.quarkus:quarkus-rest-client-reactive'
+    // H2 pour les tests
+    testImplementation 'io.quarkus:quarkus-jdbc-h2'
+}
+
+// Configuration spécifique au service (optionnel)
+//quarkus {
+    // Par exemple, configurer le port HTTP
+    // http.port = 8081
+//}
