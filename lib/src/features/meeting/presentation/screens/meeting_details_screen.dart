@@ -7,7 +7,7 @@ import '../../../../core/data/mock_audio_data.dart';
 import '../../../../core/data/mock_data.dart';
 
 /// Écran de détails d'une réunion
-class MeetingDetailsScreen extends ConsumerWidget {
+class MeetingDetailsScreen extends ConsumerStatefulWidget {
   final String meetingId;
 
   const MeetingDetailsScreen({
@@ -16,18 +16,75 @@ class MeetingDetailsScreen extends ConsumerWidget {
   });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<MeetingDetailsScreen> createState() => _MeetingDetailsScreenState();
+}
+
+class _MeetingDetailsScreenState extends ConsumerState<MeetingDetailsScreen> {
+  bool _isEditMode = false;
+  final Map<int, TextEditingController> _participantControllers = {};
+  final Map<int, String> _editedNames = {};
+
+  @override
+  void dispose() {
+    // Nettoyer les contrôleurs
+    for (var controller in _participantControllers.values) {
+      controller.dispose();
+    }
+    super.dispose();
+  }
+
+  void _toggleEditMode() {
+    setState(() {
+      if (_isEditMode) {
+        // Sauvegarder les modifications
+        _saveChanges();
+      }
+      _isEditMode = !_isEditMode;
+    });
+  }
+
+  void _saveChanges() {
+    // Sauvegarder les noms modifiés
+    for (var entry in _participantControllers.entries) {
+      final newName = entry.value.text.trim();
+      if (newName.isNotEmpty) {
+        _editedNames[entry.key] = newName;
+      }
+    }
+    
+    // TODO: Appeler l'API pour sauvegarder les modifications
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Modifications enregistrées'),
+        backgroundColor: Colors.green,
+      ),
+    );
+  }
+
+  void _cancelEdit() {
+    setState(() {
+      _isEditMode = false;
+      // Réinitialiser les contrôleurs
+      for (var controller in _participantControllers.values) {
+        controller.clear();
+      }
+      _participantControllers.clear();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final meetingsAsync = ref.watch(asyncMeetingProvider);
 
     return meetingsAsync.when(
       data: (meetings) {
         final meeting = meetings.firstWhere(
-          (m) => m.id == meetingId,
+          (m) => m.id == widget.meetingId,
           orElse: () => throw Exception('Réunion non trouvée'),
         );
 
-        final hasAudio = MockAudioData.hasAudio(meetingId);
-        final hasTranscript = MockData.getSegments(meetingId).isNotEmpty;
+        final hasAudio = MockAudioData.hasAudio(widget.meetingId);
+        final hasTranscript = MockData.getSegments(widget.meetingId).isNotEmpty;
         final isCompleted = meeting.status == MeetingStatus.completed || 
                            meeting.status == MeetingStatus.transcribed;
 
@@ -56,13 +113,25 @@ class MeetingDetailsScreen extends ConsumerWidget {
       appBar: AppBar(
         title: Text(meeting.title),
         actions: [
-          // Bouton pour éditer (si besoin)
-          IconButton(
-            icon: const Icon(Icons.edit),
-            onPressed: () {
-              // Navigation vers l'édition
-            },
-          ),
+          // Bouton pour éditer les participants
+          if (_isEditMode)
+            IconButton(
+              icon: const Icon(Icons.close),
+              onPressed: _cancelEdit,
+              tooltip: 'Annuler',
+            )
+          else
+            IconButton(
+              icon: const Icon(Icons.edit),
+              onPressed: _toggleEditMode,
+              tooltip: 'Modifier les participants',
+            ),
+          if (_isEditMode)
+            IconButton(
+              icon: const Icon(Icons.check),
+              onPressed: _toggleEditMode,
+              tooltip: 'Enregistrer',
+            ),
         ],
       ),
       body: SingleChildScrollView(
@@ -131,7 +200,11 @@ class MeetingDetailsScreen extends ConsumerWidget {
                 ),
               )
             else
-              ...meeting.participants.map((p) => _buildParticipantCard(p.name)).toList(),
+              ...meeting.participants.asMap().entries.map((entry) {
+                final index = entry.key;
+                final participant = entry.value;
+                return _buildParticipantCard(index, participant.name);
+              }).toList(),
           ],
         ),
       ),
@@ -295,19 +368,46 @@ class MeetingDetailsScreen extends ConsumerWidget {
   }
 
   /// Card d'un participant
-  Widget _buildParticipantCard(String participantName) {
+  Widget _buildParticipantCard(int index, String participantName) {
+    // Utiliser le nom édité s'il existe, sinon le nom original
+    final displayName = _editedNames[index] ?? participantName;
+    
+    // Créer un contrôleur si on est en mode édition et qu'il n'existe pas
+    if (_isEditMode && !_participantControllers.containsKey(index)) {
+      _participantControllers[index] = TextEditingController(text: displayName);
+    }
+
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
       child: ListTile(
         leading: CircleAvatar(
+          backgroundColor: _isEditMode ? Colors.orange : Colors.blue,
           child: Text(
-            participantName.isNotEmpty ? participantName[0].toUpperCase() : '?',
+            displayName.isNotEmpty ? displayName[0].toUpperCase() : '?',
           ),
         ),
-        title: Text(
-          participantName,
-          style: const TextStyle(fontWeight: FontWeight.bold),
-        ),
+        title: _isEditMode
+            ? TextField(
+                controller: _participantControllers[index],
+                decoration: InputDecoration(
+                  hintText: 'Nom du participant',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
+                ),
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              )
+            : Text(
+                displayName,
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+        trailing: _isEditMode
+            ? const Icon(Icons.edit, color: Colors.orange)
+            : null,
       ),
     );
   }

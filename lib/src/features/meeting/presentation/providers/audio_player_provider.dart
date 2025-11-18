@@ -87,8 +87,12 @@ class AudioPlayerNotifier extends _$AudioPlayerNotifier {
         throw Exception('Aucun audio disponible pour cette réunion');
       }
 
-      // Charger l'audio
-      await _audioPlayer!.setUrl(audioUrl);
+      // Charger l'audio (asset local ou URL distante)
+      if (audioUrl.startsWith('assets/')) {
+        await _audioPlayer!.setAsset(audioUrl);
+      } else {
+        await _audioPlayer!.setUrl(audioUrl);
+      }
 
       // Écouter les changements de position
       _audioPlayer!.positionStream.listen((position) {

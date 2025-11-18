@@ -11,6 +11,8 @@ class MockAudioData {
     'meeting-002': 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3',
     'meeting-003': 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3',
     'meeting-005': 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3',
+    // Réunion Client - Présentation POC avec audio local
+    '550e8400-e29b-41d4-a716-446655440004': 'assets/audio/audio.mp3',
   };
 
   /// Obtenir l'URL audio d'une réunion
@@ -37,6 +39,8 @@ class MockAudioData {
         return 2700; // 45min
       case 'meeting-005':
         return 4500; // 1h15
+      case '550e8400-e29b-41d4-a716-446655440004':
+        return 2700; // 45min (Réunion Client)
       default:
         return 0;
     }

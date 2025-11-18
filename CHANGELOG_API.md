@@ -159,6 +159,71 @@ Toute la documentation est disponible dans :
 
 ---
 
+## [2024-11-18] - Nettoyage et complétion des APIs
+
+### 🧹 Nettoyage effectué
+
+#### Fichiers supprimés (doublons)
+- ❌ `lib/src/core/api/meeting_api_service.dart` - Doublon de `meeting_remote_datasource.dart`
+- ❌ `lib/src/core/api/meeting_api_service.g.dart` - Fichier généré associé
+
+**Raison** : Ces fichiers faisaient la même chose que `meeting_remote_datasource.dart` mais étaient moins complets (manquaient `startMeeting` et `endMeeting`).
+
+### ✨ APIs complétées
+
+#### Nouvelles méthodes ajoutées à `meeting_remote_datasource.dart`
+- ✅ `PUT /api/meeting/{id}/start` - Démarrer une réunion (transition scheduled → in_progress)
+- ✅ `PUT /api/meeting/{id}/end` - Terminer une réunion (transition in_progress → completed)
+- ✅ `GET /api/participant/all` - Lister tous les participants enregistrés
+
+### 📚 Documentation créée
+
+- ✅ `API_INTEGRATION_GUIDE.md` - Guide complet d'utilisation des APIs
+- ✅ `API_SUMMARY.md` - Résumé de l'intégration
+- ✅ `MIGRATION_API.md` - Guide de migration depuis l'ancien service
+
+### 🎯 État actuel
+
+**Fichier unique pour les APIs Meeting** : `lib/src/features/meeting/data/datasources/meeting_remote_datasource.dart`
+
+**APIs disponibles** :
+1. `fetchMeetings()` - Lister toutes les réunions
+2. `getMeetingById(id)` - Détail d'une réunion
+3. `createMeeting(data)` - Créer une réunion
+4. `searchMeetingsByTitle(title)` - Rechercher par titre
+5. `startMeeting(id)` - Démarrer une réunion
+6. `endMeeting(id)` - Terminer une réunion
+7. `getMeetingParticipants(id)` - Lister les participants d'une réunion
+8. `getAllParticipants()` - Lister tous les participants
+9. `addParticipant(meetingId, data)` - Ajouter un participant
+10. `removeParticipant(meetingId, participantId)` - Retirer un participant
+
+### ✅ Checklist mise à jour
+
+- [x] Créer la spécification API
+- [x] Créer les services API
+- [x] Configurer Dio client
+- [x] Générer le code avec build_runner
+- [x] Créer la documentation complète
+- [x] Créer des exemples d'utilisation
+- [x] **Supprimer les doublons**
+- [x] **Compléter toutes les APIs du backend**
+- [ ] Configurer l'URL du backend (actuellement: localhost:8080)
+- [ ] Créer les repositories
+- [ ] Créer les providers
+- [ ] Intégrer dans les widgets
+- [ ] Implémenter l'authentification
+- [ ] Ajouter les tests
+
+### 📝 Notes
+
+- Les données mockées restent en place et continuent d'être utilisées
+- Les APIs sont prêtes à être utilisées dès que le backend sera accessible
+- Aucune modification des écrans existants (comme demandé)
+
+---
+
 **Auteur** : Cascade AI  
-**Date** : 7 novembre 2024  
-**Version** : 1.0.0 (Intégration initiale)
+**Date initiale** : 7 novembre 2024  
+**Dernière mise à jour** : 18 novembre 2024  
+**Version** : 1.1.0 (Nettoyage et complétion)

@@ -122,7 +122,7 @@ class _CreateMeetingScreenState extends ConsumerState<CreateMeetingScreen> {
         description: _descriptionController.text.isEmpty
             ? null
             : _descriptionController.text,
-        status: MeetingStatus.scheduled,
+        status: MeetingStatus.inProgress, // Mettre en cours pour l'enregistrement
         participants: List.generate(
           _selectedParticipantCount!,
           (index) => Participant(
@@ -136,7 +136,8 @@ class _CreateMeetingScreenState extends ConsumerState<CreateMeetingScreen> {
 
       ref.read(asyncMeetingProvider.notifier).createMeeting(newMeeting);
 
-      context.pop();
+      // Naviguer vers l'écran d'enregistrement
+      context.go('/meeting-recording/${newMeeting.id}?title=${Uri.encodeComponent(newMeeting.title)}');
     }
   }
 
