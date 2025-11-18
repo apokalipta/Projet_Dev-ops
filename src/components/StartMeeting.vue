@@ -247,7 +247,8 @@ export default {
         'scheduled': 'Planifiée',
         'in_progress': 'En cours',
         'completed': 'Terminée',
-        'cancelled': 'Annulée'
+        'cancelled': 'Annulée',
+        'postponed': 'Reportée'
       }
       return labels[status] || status
     },

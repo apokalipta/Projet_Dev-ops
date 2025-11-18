@@ -153,6 +153,33 @@
             </div>
             <div v-if="errors.duration" class="error-message">{{ errors.duration }}</div>
           </div>
+
+          <!-- Langue de la réunion -->
+          <div class="form-group">
+            <label for="language" class="form-label">
+              <svg class="label-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"/>
+                <path d="M2 12h20"/>
+                <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+              </svg>
+              Langue de la réunion *
+            </label>
+            <select
+              id="language"
+              v-model="meetingData.language"
+              class="form-select"
+              required
+            >
+              <option value="fr">Français</option>
+              <option value="en">English</option>
+              <option value="es">Español</option>
+              <option value="de">Deutsch</option>
+              <option value="it">Italiano</option>
+              <option value="pt">Português</option>
+              <option value="ar">العربية</option>
+            </select>
+            <div v-if="errors.language" class="error-message">{{ errors.language }}</div>
+          </div>
         </div>
 
         <!-- Description (optionnelle) -->
@@ -258,6 +285,7 @@ export default {
         date: '',
         participants: '',
         duration: '',
+        language: 'fr',
         description: '',
         autoStart: true,
         sendReminders: false
@@ -354,8 +382,10 @@ export default {
         name: this.meetingData.name.trim(),
         date: new Date(this.meetingData.date).toISOString(),
         duration: Number.isFinite(totalMinutes) ? Number(totalMinutes) : undefined,
-        participants: Number.isFinite(Number(this.meetingData.participants)) ? Number(this.meetingData.participants) : undefined,
+        participants: [], // Le backend attend une liste vide ou une liste d'objets ParticipantRequest
+        language: this.meetingData.language || 'fr',
         description: this.meetingData.description?.trim?.() || '',
+        status: 'scheduled', // Statut par défaut
         autoStart: Boolean(this.meetingData.autoStart),
         sendReminders: Boolean(this.meetingData.sendReminders),
         metadata: {
@@ -368,11 +398,16 @@ export default {
       
       try {
         const response = await apiService.createMeeting(payload)
-        if (!response?.success || !response?.data) {
-          throw new Error(response?.message || 'Réponse inattendue du serveur.')
+        
+        // Le backend retourne directement l'objet MeetingResponse
+        // ou peut-être dans response.data selon le format
+        const meeting = response?.data || response
+        
+        if (!meeting || !meeting.id) {
+          throw new Error('Réponse inattendue du serveur.')
         }
 
-        this.$emit('meeting-created', response.data)
+        this.$emit('meeting-created', meeting)
       } catch (error) {
         console.error('Erreur lors de la création:', error)
         const details = error?.details?.errors

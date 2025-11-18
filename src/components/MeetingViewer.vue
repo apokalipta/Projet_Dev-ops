@@ -13,13 +13,58 @@
           {{ meeting.title }}
         </h1>
         <div class="meeting-meta">
-          <span class="meeting-date">{{ formatDate(meeting.date) }}</span>
-          <span class="meeting-duration">{{ formatDuration(meeting.duration) }}</span>
+          <span class="meeting-status status-badge" :class="`status-${meeting.status}`">
+            {{ getStatusLabel(meeting.status) }}
+          </span>
+          <span class="meeting-date">{{ formatDate(meeting.scheduledAt) }}</span>
+          <span class="meeting-duration">{{ formatDuration(meeting.durationMinutes) }}</span>
+        </div>
+        <div v-if="meeting.description" class="meeting-description">
+          {{ meeting.description }}
         </div>
       </div>
 
-      <!-- Contrôles de lecture -->
-      <div class="player-controls">
+      <!-- Actions de gestion -->
+      <div class="meeting-actions-bar">
+        <button 
+          v-if="meeting.status === 'scheduled'"
+          @click="startMeeting" 
+          class="btn btn-primary"
+          :disabled="isStarting"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polygon points="5,3 19,12 5,21 5,3"/>
+          </svg>
+          {{ isStarting ? 'Démarrage...' : 'Démarrer la réunion' }}
+        </button>
+        <button 
+          v-if="meeting.status === 'in_progress'"
+          @click="endMeeting" 
+          class="btn btn-danger"
+          :disabled="isEnding"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="6" y="6" width="12" height="12" rx="2"/>
+          </svg>
+          {{ isEnding ? 'Clôture...' : 'Clore la réunion' }}
+        </button>
+        <button 
+          @click="manageParticipants" 
+          class="btn btn-secondary"
+          :disabled="meeting.status === 'completed'"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+            <circle cx="9" cy="7" r="4"/>
+            <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+            <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+          </svg>
+          Gérer les participants
+        </button>
+      </div>
+
+      <!-- Contrôles de lecture (affichés seulement si audio disponible) -->
+      <div v-if="hasAudio" class="player-controls">
         <button class="btn btn-icon" @click="togglePlay" :disabled="!hasAudio">
           <svg v-if="!isPlaying" viewBox="0 0 24 24" fill="currentColor">
             <path d="M8 5v14l11-7z"/>
@@ -35,50 +80,105 @@
           <span class="time-total">{{ formatTime(duration) }}</span>
         </div>
       </div>
+      
+      <!-- Message si pas d'audio -->
+      <div v-else class="no-audio-message">
+        <p>Aucun fichier audio disponible pour cette réunion</p>
+      </div>
 
-      <!-- Transcription avec sélection du locuteur -->
+      <!-- Transcription avec recherche et filtres -->
       <div class="transcript-container">
         <h3>Transcription</h3>
         
-        <!-- Sélecteur de locuteur -->
-        <div class="speaker-selector" v-if="meeting.participants && meeting.participants.length > 0">
-          <label>Filtrer par locuteur :</label>
-          <select v-model="selectedSpeaker" class="form-select">
-            <option value="">Tous les locuteurs</option>
-            <option 
-              v-for="participant in meeting.participants" 
-              :key="participant.id" 
-              :value="participant.id"
-            >
-              {{ participant.name }}
-            </option>
-          </select>
+        <!-- Barre de recherche et filtres -->
+        <div class="transcript-filters">
+          <!-- Recherche par mot-clé -->
+          <div class="filter-group">
+            <label class="filter-label">
+              <svg class="filter-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="11" cy="11" r="8"/>
+                <path d="m21 21-4.35-4.35"/>
+              </svg>
+              Rechercher un mot-clé :
+            </label>
+            <div class="search-input-container">
+              <input
+                type="text"
+                v-model="keywordSearch"
+                @input="filterSegments"
+                class="filter-input"
+                placeholder="Tapez un mot ou une phrase..."
+              />
+              <button 
+                v-if="keywordSearch" 
+                @click="clearKeywordSearch" 
+                class="clear-filter-btn"
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <line x1="18" y1="6" x2="6" y2="18"/>
+                  <line x1="6" y1="6" x2="18" y2="18"/>
+                </svg>
+              </button>
+            </div>
+          </div>
+          
+          <!-- Filtre par locuteur -->
+          <div class="filter-group" v-if="meeting.participants && meeting.participants.length > 0">
+            <label class="filter-label">
+              <svg class="filter-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                <circle cx="9" cy="7" r="4"/>
+              </svg>
+              Filtrer par personne :
+            </label>
+            <select v-model="selectedSpeaker" @change="filterSegments" class="filter-select">
+              <option value="">Tous les locuteurs</option>
+              <option 
+                v-for="participant in meeting.participants" 
+                :key="participant.id" 
+                :value="participant.id"
+              >
+                {{ participant.fullName }}
+              </option>
+            </select>
+          </div>
+        </div>
+        
+        <!-- Compteur de résultats -->
+        <div v-if="keywordSearch || selectedSpeaker" class="results-count">
+          {{ filteredSegments.length }} segment{{ filteredSegments.length > 1 ? 's' : '' }} trouvé{{ filteredSegments.length > 1 ? 's' : '' }}
         </div>
 
         <!-- Liste des segments de transcription -->
-        <div class="transcript-segments">
+        <div v-if="filteredSegments.length > 0" class="transcript-segments">
           <div 
             v-for="(segment, index) in filteredSegments" 
-            :key="index"
+            :key="segment.id || index"
             class="transcript-segment"
             :class="{ 
               'active': isSegmentActive(segment),
-              'speaker-1': segment.speakerId === 1,
-              'speaker-2': segment.speakerId === 2,
-              'speaker-3': segment.speakerId === 3
+              'speaker-1': getSegmentSpeakerId(segment) === 1,
+              'speaker-2': getSegmentSpeakerId(segment) === 2,
+              'speaker-3': getSegmentSpeakerId(segment) === 3
             }"
-            @click="seekTo(segment.startTime)"
+            @click="seekTo(segment.timeDepart || segment.startTime)"
           >
             <div class="segment-speaker">
-              {{ getSpeakerName(segment.speakerId) }}
+              {{ getSpeakerName(getSegmentSpeakerId(segment)) }}
             </div>
-            <div class="segment-text">
-              {{ segment.text }}
-            </div>
+            <div class="segment-text" v-html="highlightKeyword(segment.texte || segment.text)"></div>
             <div class="segment-time">
-              {{ formatTime(segment.startTime) }}
+              {{ formatTime(segment.timeDepart || segment.startTime) }}
             </div>
           </div>
+        </div>
+        <div v-else class="no-segments-message">
+          <p v-if="keywordSearch || selectedSpeaker">
+            Aucun segment ne correspond à vos critères de recherche.
+          </p>
+          <p v-else>
+            Aucun segment de transcription disponible pour cette réunion.
+          </p>
         </div>
       </div>
 
@@ -87,7 +187,11 @@
         <button @click="$emit('back')" class="btn btn-secondary">
           Retour
         </button>
-        <button @click="exportTranscript" class="btn btn-primary">
+        <button 
+          v-if="meeting.segments && meeting.segments.length > 0"
+          @click="exportTranscript" 
+          class="btn btn-primary"
+        >
           Exporter la transcription
         </button>
       </div>
@@ -96,6 +200,9 @@
 </template>
 
 <script>
+import { apiService } from '../services/api.js'
+import { API_CONFIG } from '../config/api.js'
+
 export default {
   name: 'MeetingViewer',
   
@@ -111,25 +218,31 @@ export default {
       meeting: {
         id: null,
         title: '',
-        date: new Date(),
-        duration: 0,
-        audioFile: null,
+        description: '',
+        scheduledAt: null,
+        durationMinutes: 0,
+        status: 'scheduled',
         participants: [],
         segments: []
       },
       selectedSpeaker: '',
+      keywordSearch: '',
       currentTime: 0,
       duration: 0,
       isPlaying: false,
       audioPlayer: null,
       isLoading: true,
-      error: null
+      error: null,
+      isStarting: false,
+      isEnding: false
     }
   },
 
   computed: {
     hasAudio() {
-      return !!this.meeting.audioFile
+      // Vérifier si un fichier audio est disponible
+      // Le backend peut retourner recordFileName ou recordFileData
+      return !!(this.meeting.audioFile || this.meeting.recordFileName)
     },
 
     progress() {
@@ -137,13 +250,31 @@ export default {
     },
 
     filteredSegments() {
-      if (!this.selectedSpeaker) return this.meeting.segments
-      return this.meeting.segments.filter(s => s.speakerId == this.selectedSpeaker)
+      let filtered = [...(this.meeting.segments || [])]
+      
+      // Filtrer par personne (locuteur)
+      if (this.selectedSpeaker) {
+        filtered = filtered.filter(s => {
+          const speakerId = s.locuteur?.id || s.locuteurId || s.speakerId
+          return speakerId == this.selectedSpeaker
+        })
+      }
+      
+      // Filtrer par mot-clé
+      if (this.keywordSearch.trim()) {
+        const keyword = this.keywordSearch.trim().toLowerCase()
+        filtered = filtered.filter(s => {
+          const text = (s.texte || s.text || '').toLowerCase()
+          return text.includes(keyword)
+        })
+      }
+      
+      return filtered
     }
   },
 
-  created() {
-    this.fetchMeetingData()
+  async created() {
+    await this.fetchMeetingData()
   },
 
   beforeDestroy() {
@@ -161,59 +292,124 @@ export default {
       this.error = null
       
       try {
-        // Ici, vous devrez appeler votre API pour récupérer les données de la réunion
-        // Exemple: const response = await apiService.getMeeting(this.meetingId)
-        // this.meeting = response.data
+        // Charger les données de la réunion depuis l'API
+        const meetingResponse = await apiService.getMeetingById(this.meetingId)
+        this.meeting = meetingResponse
         
-        // Données factices pour l'exemple
-        setTimeout(() => {
-          this.meeting = {
-            id: this.meetingId,
-            title: 'Réunion du projet X',
-            date: new Date(),
-            duration: 3600, // en secondes
-            audioFile: '/path/to/audio.mp3',
-            participants: [
-              { id: 1, name: 'Jean Dupont', role: 'Chef de projet' },
-              { id: 2, name: 'Marie Martin', role: 'Développeuse' },
-              { id: 3, name: 'Pierre Durand', role: 'Designer' }
-            ],
-            segments: [
-              { 
-                id: 1,
-                speakerId: 1,
-                startTime: 0,
-                endTime: 15,
-                text: "Bonjour à tous, bienvenue à cette réunion de suivi du projet X."
-              },
-              { 
-                id: 2,
-                speakerId: 2,
-                startTime: 16,
-                endTime: 30,
-                text: "Bonjour Jean, merci. Je vais commencer par faire le point sur l'avancement technique."
-              },
-              // Ajoutez plus de segments de test si nécessaire
-            ]
+        // Charger les participants
+        try {
+          const participantsResponse = await apiService.getParticipantsByMeeting(this.meetingId)
+          this.meeting.participants = Array.isArray(participantsResponse) ? participantsResponse : []
+        } catch (err) {
+          console.warn('Impossible de charger les participants:', err)
+          this.meeting.participants = []
+        }
+        
+        // Charger les segments de transcription si disponibles
+        try {
+          const segmentsResponse = await apiService.getSegments(this.meetingId)
+          this.meeting.segments = Array.isArray(segmentsResponse) ? segmentsResponse : []
+        } catch (err) {
+          console.warn('Impossible de charger les segments:', err)
+          this.meeting.segments = []
+        }
+        
+        // Essayer de charger le nom du fichier audio
+        try {
+          const recordFileResponse = await apiService.getRecordFile(this.meetingId)
+          if (recordFileResponse) {
+            this.meeting.recordFileName = recordFileResponse
           }
-          this.isLoading = false
-          this.initializeAudioPlayer()
-        }, 1000)
+        } catch (err) {
+          console.warn('Impossible de charger le fichier audio:', err)
+        }
         
+        this.isLoading = false
+        this.initializeAudioPlayer()
       } catch (error) {
         console.error('Erreur lors du chargement de la réunion:', error)
-        this.error = 'Impossible de charger les détails de la réunion. Veuillez réessayer plus tard.'
+        this.error = error?.message || 'Impossible de charger les détails de la réunion. Veuillez réessayer plus tard.'
         this.isLoading = false
       }
     },
+    
+    async startMeeting() {
+      if (this.isStarting) return
+      
+      this.isStarting = true
+      try {
+        const response = await apiService.startMeeting(this.meetingId)
+        this.meeting = response
+        alert('✅ Réunion démarrée avec succès !')
+      } catch (error) {
+        console.error('Erreur lors du démarrage:', error)
+        alert(error?.message || '❌ Erreur lors du démarrage de la réunion')
+      } finally {
+        this.isStarting = false
+      }
+    },
+    
+    async endMeeting() {
+      if (this.isEnding) return
+      if (!confirm('Êtes-vous sûr de vouloir clore cette réunion ?')) {
+        return
+      }
+      
+      this.isEnding = true
+      try {
+        const response = await apiService.endMeeting(this.meetingId)
+        this.meeting = response
+        alert('✅ Réunion clôturée avec succès !')
+      } catch (error) {
+        console.error('Erreur lors de la clôture:', error)
+        alert(error?.message || '❌ Erreur lors de la clôture de la réunion')
+      } finally {
+        this.isEnding = false
+      }
+    },
+    
+    manageParticipants() {
+      this.$emit('manage-participants', this.meetingId)
+    },
+    
+    filterSegments() {
+      // La computed property filteredSegments se met à jour automatiquement
+      // Cette méthode est appelée pour forcer la réactivité si nécessaire
+    },
+    
+    clearKeywordSearch() {
+      this.keywordSearch = ''
+    },
+    
+    highlightKeyword(text) {
+      if (!this.keywordSearch.trim() || !text) {
+        return text || ''
+      }
+      
+      const keyword = this.keywordSearch.trim()
+      const regex = new RegExp(`(${keyword})`, 'gi')
+      return (text || '').replace(regex, '<mark>$1</mark>')
+    },
 
-    initializeAudioPlayer() {
+    async initializeAudioPlayer() {
       if (!this.hasAudio) return
       
-      this.audioPlayer = new Audio(this.meeting.audioFile)
-      this.audioPlayer.addEventListener('timeupdate', this.updateProgress)
-      this.audioPlayer.addEventListener('loadedmetadata', this.setDuration)
-      this.audioPlayer.addEventListener('ended', this.onAudioEnd)
+      try {
+        // Essayer de récupérer le fichier audio depuis l'API
+        const audioUrl = this.meeting.audioFile || 
+                        (this.meeting.recordFileName ? 
+                          `${API_CONFIG.BASE_URL}/transcription/${this.meetingId}/obtain_record_file` : 
+                          null)
+        
+        if (audioUrl) {
+          this.audioPlayer = new Audio(audioUrl)
+          this.audioPlayer.addEventListener('timeupdate', this.updateProgress)
+          this.audioPlayer.addEventListener('loadedmetadata', this.setDuration)
+          this.audioPlayer.addEventListener('ended', this.onAudioEnd)
+        }
+      } catch (error) {
+        console.warn('Impossible de charger le fichier audio:', error)
+      }
     },
 
     togglePlay() {
@@ -250,15 +446,23 @@ export default {
     },
 
     isSegmentActive(segment) {
-      return this.currentTime >= segment.startTime && this.currentTime <= segment.endTime
+      const startTime = segment.timeDepart || segment.startTime || 0
+      const endTime = segment.timeEnd || segment.endTime || 0
+      return this.currentTime >= startTime && this.currentTime <= endTime
+    },
+    
+    getSegmentSpeakerId(segment) {
+      // Le backend peut retourner locuteur.id ou locuteurId
+      return segment.locuteur?.id || segment.locuteurId || segment.speakerId || 0
     },
 
     getSpeakerName(speakerId) {
       const speaker = this.meeting.participants.find(p => p.id === speakerId)
-      return speaker ? speaker.name : `Locuteur ${speakerId}`
+      return speaker ? speaker.fullName : `Locuteur ${speakerId}`
     },
 
     formatDate(dateString) {
+      if (!dateString) return 'Date non définie'
       const date = new Date(dateString)
       const options = { 
         year: 'numeric', 
@@ -268,6 +472,17 @@ export default {
         minute: '2-digit' 
       }
       return date.toLocaleDateString('fr-FR', options)
+    },
+    
+    getStatusLabel(status) {
+      const labels = {
+        'scheduled': 'Planifiée',
+        'in_progress': 'En cours',
+        'completed': 'Terminée',
+        'cancelled': 'Annulée',
+        'postponed': 'Reportée'
+      }
+      return labels[status] || status
     },
 
     formatTime(seconds) {
@@ -334,12 +549,74 @@ export default {
 .meeting-meta {
   color: #7f8c8d;
   font-size: 0.95rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+  justify-content: center;
 }
 
-.meeting-meta span:not(:last-child)::after {
-  content: '•';
-  margin: 0 0.5rem;
-  color: #bdc3c7;
+.meeting-description {
+  margin-top: 1rem;
+  color: #555;
+  font-size: 1rem;
+  line-height: 1.6;
+  max-width: 800px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.status-badge {
+  padding: 0.25rem 0.75rem;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.status-scheduled {
+  background: #e3f2fd;
+  color: #1976d2;
+}
+
+.status-in_progress {
+  background: #fff3e0;
+  color: #f57c00;
+}
+
+.status-completed {
+  background: #e8f5e9;
+  color: #388e3c;
+}
+
+.status-cancelled {
+  background: #ffebee;
+  color: #d32f2f;
+}
+
+.meeting-actions-bar {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+  margin-bottom: 2rem;
+  flex-wrap: wrap;
+}
+
+.btn-danger {
+  background-color: #e74c3c;
+  color: white;
+}
+
+.btn-danger:hover:not(:disabled) {
+  background-color: #c0392b;
+}
+
+.no-audio-message {
+  text-align: center;
+  padding: 2rem;
+  background: #f8f9fa;
+  border-radius: 8px;
+  margin-bottom: 2rem;
+  color: #6b7280;
 }
 
 .player-controls {
@@ -432,26 +709,121 @@ export default {
   display: inline-block;
 }
 
-.speaker-selector {
+.transcript-filters {
+  background: #f8fafc;
+  border-radius: 8px;
+  padding: 1.5rem;
   margin-bottom: 1.5rem;
   display: flex;
-  align-items: center;
-  gap: 1rem;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+  align-items: flex-end;
 }
 
-.speaker-selector label {
+.filter-group {
+  flex: 1;
+  min-width: 250px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.filter-label {
   font-weight: 500;
-  color: #2c3e50;
+  color: #374151;
+  font-size: 0.9rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
 }
 
-.form-select {
-  padding: 0.5rem 1rem;
-  border: 1px solid #ddd;
-  border-radius: 4px;
+.filter-icon {
+  width: 18px;
+  height: 18px;
+  color: #6366f1;
+}
+
+.search-input-container {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.filter-input {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border: 2px solid #e5e7eb;
+  border-radius: 0.5rem;
+  font-size: 0.95rem;
+  transition: all 0.3s ease;
+}
+
+.filter-input:focus {
+  outline: none;
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3px rgb(99 102 241 / 0.1);
+}
+
+.clear-filter-btn {
+  position: absolute;
+  right: 0.5rem;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0.5rem;
+  color: #6b7280;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.25rem;
+  transition: all 0.2s;
+}
+
+.clear-filter-btn:hover {
+  background: #f3f4f6;
+  color: #374151;
+}
+
+.clear-filter-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
+.filter-select {
+  padding: 0.75rem 1rem;
+  border: 2px solid #e5e7eb;
+  border-radius: 0.5rem;
   background-color: white;
   font-size: 0.95rem;
   color: #2c3e50;
-  min-width: 200px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.filter-select:focus {
+  outline: none;
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3px rgb(99 102 241 / 0.1);
+}
+
+.results-count {
+  margin-bottom: 1rem;
+  padding: 0.75rem 1rem;
+  background: #e0e7ff;
+  border-left: 4px solid #6366f1;
+  border-radius: 0.5rem;
+  color: #4338ca;
+  font-weight: 500;
+  font-size: 0.9rem;
+}
+
+.no-segments-message {
+  text-align: center;
+  padding: 3rem 2rem;
+  color: #6b7280;
+  background: #f8fafc;
+  border-radius: 8px;
+  border: 1px dashed #d1d5db;
 }
 
 .transcript-segments {
@@ -511,6 +883,14 @@ export default {
   line-height: 1.6;
   color: #34495e;
   margin-bottom: 0.5rem;
+}
+
+.segment-text mark {
+  background: #fef08a;
+  color: #92400e;
+  padding: 0.1rem 0.2rem;
+  border-radius: 0.25rem;
+  font-weight: 600;
 }
 
 .segment-time {
@@ -629,11 +1009,6 @@ export default {
   
   .progress-container {
     margin: 0.5rem 0;
-  }
-  
-  .speaker-selector {
-    flex-direction: column;
-    align-items: flex-start;
   }
   
   .action-buttons {

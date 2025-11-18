@@ -2,16 +2,62 @@
   <div class="meetings-list-page">
     <div class="meetings-container">
       <div class="meetings-header">
-        <h1 class="meetings-title">
-          <svg class="meetings-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-            <circle cx="12" cy="12" r="3"/>
-          </svg>
-          Mes réunions
-        </h1>
-        <p class="meetings-subtitle">
-          Consultez et visualisez toutes vos réunions enregistrées
-        </p>
+        <div class="header-content">
+          <div class="header-text">
+            <h1 class="meetings-title">
+              <svg class="meetings-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                <circle cx="12" cy="12" r="3"/>
+              </svg>
+              Mes réunions
+            </h1>
+            <p class="meetings-subtitle">
+              Consultez et visualisez toutes vos réunions enregistrées
+            </p>
+          </div>
+          
+          <!-- Barre de recherche intégrée dans le header -->
+          <div class="header-search-bar">
+            <div class="search-input-wrapper">
+              <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="11" cy="11" r="8"/>
+                <path d="m21 21-4.35-4.35"/>
+              </svg>
+              <input
+                type="text"
+                v-model="searchQuery"
+                @input="filterMeetings"
+                class="search-input"
+                placeholder="Rechercher une réunion par nom..."
+              />
+              <button 
+                v-if="searchQuery" 
+                @click="clearSearch" 
+                class="clear-search-btn"
+                title="Effacer la recherche"
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <line x1="18" y1="6" x2="6" y2="18"/>
+                  <line x1="6" y1="6" x2="18" y2="18"/>
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Contrôles de tri -->
+        <div class="sort-controls-bar">
+          <label class="sort-label">
+            <svg class="sort-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="6 9 12 15 18 9"/>
+            </svg>
+            Trier par date :
+          </label>
+          <select v-model="sortOrder" @change="filterMeetings" class="sort-select">
+            <option value="desc">Plus récentes d'abord</option>
+            <option value="asc">Plus anciennes d'abord</option>
+          </select>
+        </div>
       </div>
 
       <!-- Loading State -->
@@ -36,9 +82,9 @@
       </div>
 
       <!-- Meetings Grid -->
-      <div v-else-if="meetings.length > 0" class="meetings-grid">
+      <div v-else-if="filteredMeetings.length > 0" class="meetings-grid">
         <div 
-          v-for="meeting in meetings" 
+          v-for="meeting in filteredMeetings" 
           :key="meeting.id"
           class="meeting-card-view"
           @click="viewMeetingDetails(meeting.id)"
@@ -89,6 +135,19 @@
               </svg>
               Voir la réunion
             </button>
+            <button 
+              v-if="meeting.status !== 'completed'"
+              class="btn-manage" 
+              @click.stop="manageParticipants(meeting.id)"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                <circle cx="9" cy="7" r="4"/>
+                <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+              </svg>
+              Participants
+            </button>
           </div>
         </div>
       </div>
@@ -101,9 +160,14 @@
           <line x1="8" y1="2" x2="8" y2="6"/>
           <line x1="3" y1="10" x2="21" y2="10"/>
         </svg>
-        <h3>Aucune réunion disponible</h3>
-        <p>Vous n'avez pas encore de réunions enregistrées.</p>
-        <button @click="goToPlan" class="btn btn-primary">
+        <h3 v-if="searchQuery">Aucune réunion trouvée</h3>
+        <h3 v-else>Aucune réunion disponible</h3>
+        <p v-if="searchQuery">Aucune réunion ne correspond à votre recherche "{{ searchQuery }}"</p>
+        <p v-else>Vous n'avez pas encore de réunions enregistrées.</p>
+        <button v-if="searchQuery" @click="clearSearch" class="btn btn-secondary">
+          Effacer la recherche
+        </button>
+        <button v-else @click="goToPlan" class="btn btn-primary">
           Planifier une réunion
         </button>
       </div>
@@ -130,7 +194,7 @@
 </template>
 
 <script>
-import { mockMeetings } from '../data/meetings';
+import { apiService } from '../services/api.js'
 
 export default {
   name: 'MeetingsList',
@@ -139,7 +203,10 @@ export default {
     return {
       isLoading: false,
       error: null,
-      meetings: []
+      meetings: [],
+      searchQuery: '',
+      sortOrder: 'desc', // 'asc' ou 'desc'
+      filteredMeetings: []
     }
   },
   
@@ -147,22 +214,84 @@ export default {
     this.loadMeetings()
   },
   
+  watch: {
+    meetings() {
+      this.filterMeetings()
+    }
+  },
+  
   methods: {
-    loadMeetings() {
+    async loadMeetings() {
+      this.isLoading = true
+      this.error = null
+      
       try {
-        this.meetings = mockMeetings
+        const response = await apiService.getAllMeetings()
+        
+        // Gérer différents formats de réponse
+        if (Array.isArray(response)) {
+          this.meetings = response
+        } else if (response?.data && Array.isArray(response.data)) {
+          this.meetings = response.data
+        } else if (response?.meetings && Array.isArray(response.meetings)) {
+          this.meetings = response.meetings
+        } else {
+          this.meetings = []
+        }
+        
+        // Appliquer les filtres après le chargement
+        this.filterMeetings()
       } catch (err) {
         console.error('Erreur lors du chargement des réunions:', err)
-        this.error = 'Impossible de charger les réunions. Veuillez réessayer.'
+        this.error = err?.message || 'Impossible de charger les réunions. Veuillez réessayer.'
+        this.filteredMeetings = []
+      } finally {
+        this.isLoading = false
       }
     },
     
     refreshMeetings() {
       this.loadMeetings()
     },
+    
+    filterMeetings() {
+      let filtered = [...this.meetings]
+      
+      // Filtrer par nom/titre
+      if (this.searchQuery.trim()) {
+        const query = this.searchQuery.trim().toLowerCase()
+        filtered = filtered.filter(meeting => 
+          meeting.title?.toLowerCase().includes(query) ||
+          meeting.description?.toLowerCase().includes(query)
+        )
+      }
+      
+      // Trier par date
+      filtered.sort((a, b) => {
+        const dateA = new Date(a.scheduledAt || a.createdAt || 0)
+        const dateB = new Date(b.scheduledAt || b.createdAt || 0)
+        
+        if (this.sortOrder === 'asc') {
+          return dateA - dateB
+        } else {
+          return dateB - dateA
+        }
+      })
+      
+      this.filteredMeetings = filtered
+    },
+    
+    clearSearch() {
+      this.searchQuery = ''
+      this.filterMeetings()
+    },
 
-    viewMeetingDetails(meeting) {
-      this.$emit('view-meeting', meeting.id)
+    viewMeetingDetails(meetingId) {
+      this.$emit('view-meeting', meetingId)
+    },
+    
+    manageParticipants(meetingId) {
+      this.$emit('manage-participants', meetingId)
     },
 
     getStatusLabel(status) {
@@ -170,7 +299,8 @@ export default {
         'scheduled': 'Planifiée',
         'in_progress': 'En cours',
         'completed': 'Terminée',
-        'cancelled': 'Annulée'
+        'cancelled': 'Annulée',
+        'postponed': 'Reportée'
       }
       return labels[status] || status
     },
@@ -220,14 +350,24 @@ export default {
 }
 
 .meetings-header {
-  text-align: center;
-  margin-bottom: 3rem;
+  margin-bottom: 2rem;
   color: white;
+}
+
+.header-content {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.header-text {
+  text-align: center;
 }
 
 .meetings-title {
   font-size: 2.5rem;
-  margin-bottom: 1rem;
+  margin-bottom: 0.75rem;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -242,6 +382,94 @@ export default {
 .meetings-subtitle {
   font-size: 1.1rem;
   opacity: 0.9;
+}
+
+/* Barre de recherche intégrée dans le header */
+.header-search-bar {
+  width: 100%;
+  max-width: 700px;
+  margin: 0 auto;
+}
+
+.search-input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  background: white;
+  border-radius: 50px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  transition: all 0.3s ease;
+}
+
+.search-input-wrapper:focus-within {
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
+  transform: translateY(-2px);
+}
+
+.search-icon {
+  position: absolute;
+  left: 1.5rem;
+  width: 20px;
+  height: 20px;
+  color: #6b7280;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.search-input {
+  width: 100%;
+  padding: 1rem 1rem 1rem 3.5rem;
+  border: none;
+  border-radius: 50px;
+  font-size: 1rem;
+  background: transparent;
+  color: #1f2937;
+  outline: none;
+}
+
+.search-input::placeholder {
+  color: #9ca3af;
+}
+
+.clear-search-btn {
+  position: absolute;
+  right: 0.75rem;
+  background: #f3f4f6;
+  border: none;
+  cursor: pointer;
+  padding: 0.5rem;
+  color: #6b7280;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: all 0.2s;
+  width: 32px;
+  height: 32px;
+}
+
+.clear-search-btn:hover {
+  background: #e5e7eb;
+  color: #374151;
+  transform: scale(1.1);
+}
+
+.clear-search-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* Barre de tri */
+.sort-controls-bar {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem;
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
 /* Meetings Grid */
@@ -343,10 +571,12 @@ export default {
   padding: 1rem 1.5rem;
   background: #f8f9fa;
   border-top: 1px solid #e9ecef;
+  display: flex;
+  gap: 0.5rem;
 }
 
 .btn-view {
-  width: 100%;
+  flex: 1;
   padding: 0.75rem;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
@@ -361,6 +591,32 @@ export default {
   transition: all 0.3s ease;
 }
 
+.btn-manage {
+  padding: 0.75rem;
+  background: #f3f4f6;
+  color: #374151;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  transition: all 0.3s ease;
+  min-width: 120px;
+}
+
+.btn-manage:hover {
+  background: #e5e7eb;
+  transform: translateY(-2px);
+}
+
+.btn-manage svg {
+  width: 18px;
+  height: 18px;
+}
+
 .btn-view:hover {
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
@@ -369,6 +625,40 @@ export default {
 .btn-view svg {
   width: 18px;
   height: 18px;
+}
+
+.sort-label {
+  font-weight: 500;
+  color: white;
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.sort-icon {
+  width: 18px;
+  height: 18px;
+}
+
+.sort-select {
+  padding: 0.75rem 1.25rem;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-radius: 8px;
+  font-size: 1rem;
+  background: rgba(255, 255, 255, 0.95);
+  color: #1f2937;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  min-width: 220px;
+  font-weight: 500;
+}
+
+.sort-select:focus {
+  outline: none;
+  border-color: rgba(255, 255, 255, 0.6);
+  background: white;
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.2);
 }
 
 /* Action Bar */
@@ -508,6 +798,34 @@ export default {
 
   .meetings-title {
     font-size: 2rem;
+  }
+
+  .header-content {
+    gap: 1rem;
+  }
+
+  .header-search-bar {
+    max-width: 100%;
+  }
+
+  .search-input {
+    padding: 0.875rem 1rem 0.875rem 3rem;
+    font-size: 0.95rem;
+  }
+
+  .search-icon {
+    left: 1rem;
+  }
+
+  .sort-controls-bar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.75rem;
+  }
+
+  .sort-select {
+    width: 100%;
+    min-width: auto;
   }
 
   .action-bar {

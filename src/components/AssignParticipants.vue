@@ -150,6 +150,8 @@
 </template>
 
 <script>
+import { apiService } from '../services/api.js'
+
 export default {
   name: 'AssignParticipants',
   props: {
@@ -226,26 +228,40 @@ export default {
         return
       }
       
+      if (!this.meeting.id) {
+        alert('❌ ID de réunion manquant')
+        return
+      }
+      
       try {
-        // TODO: Appel API pour assigner les participants
-        // const response = await fetch(`/api/meetings/${this.meeting.meetingId}/participants`, {
-        //   method: 'POST',
-        //   headers: {
-        //     'Content-Type': 'application/json',
-        //     'Authorization': `Bearer ${token}`
-        //   },
-        //   body: JSON.stringify({ participants: this.participants })
-        // })
+        // Ajouter chaque participant à la réunion
+        const addedParticipants = []
+        for (const participant of this.participants) {
+          try {
+            const response = await apiService.addParticipant(
+              this.meeting.id,
+              {
+                fullName: participant.name,
+                email: participant.email
+              }
+            )
+            addedParticipants.push(response)
+          } catch (error) {
+            console.error(`Erreur lors de l'ajout du participant ${participant.email}:`, error)
+            // Continuer avec les autres participants même en cas d'erreur
+          }
+        }
         
-        console.log('📋 Participants à assigner:', this.participants)
-        console.log('🔗 Endpoint à configurer: POST /api/meetings/{id}/participants')
+        if (addedParticipants.length > 0) {
+          alert(`✅ ${addedParticipants.length} participant(s) ajouté(s) avec succès`)
+        }
         
         // Émettre l'événement avec les participants assignés
-        this.$emit('participants-assigned', this.participants)
+        this.$emit('participants-assigned', addedParticipants)
         
       } catch (error) {
         console.error('Erreur lors de l\'assignation:', error)
-        alert('❌ Erreur lors de l\'assignation des participants')
+        alert(error?.message || '❌ Erreur lors de l\'assignation des participants')
       }
     },
     

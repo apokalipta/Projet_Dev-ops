@@ -3,19 +3,23 @@ const VITE_API_URL = import.meta?.env?.VITE_API_URL || import.meta?.env?.VITE_AP
 const VITE_WS_URL = import.meta?.env?.VITE_WS_URL || import.meta?.env?.VITE_API_WS_URL
 
 export const API_CONFIG = {
-  // URL de base de l'API (backend Express ou autre)
-  BASE_URL: VITE_API_URL || 'http://localhost:5000/api',
+  // URL de base de l'API (backend Quarkus)
+  BASE_URL: VITE_API_URL || 'http://localhost:8080/api',
   
   // Routes principales
   ROUTES: {
     // Routes de transcription
     TRANSCRIPTION: {
+      CREATE: '/start_transcription/:id_reunion',
+      SEND_SEGMENT: '/transcription/:id_reunion/send_segment',
+      SEGMENT_TO_BDD: '/transcription/:id_reunion/segment_to_bdd',
       SEGMENTS_ALL: '/transcription/:id_reunion/segment/all',
       SEGMENT_BY_ID: '/transcription/:id_reunion/segment/:id_segment',
       SEGMENT_UPDATE: '/transcription/:id_reunion/segment/:id_segment',
       SEGMENT_SPEAKERS: '/transcription/:id_reunion/segment/:id_segment/locuteur/all',
       SEGMENT_SPEAKER_UPDATE: '/transcription/:id_reunion/segment/:id_segment/locuteur/:id_participant',
-      RECORD_FILE: '/transcription/:id_reunion/record_file',
+      GET_RECORD_FILE: '/transcription/:id_reunion/obtain_record_file',
+      SAVE_RECORD_FILE: '/transcription/:id_reunion/save_record_file',
       SEGMENT_START_TIME: '/transcription/:id_reunion/segment/:id_segment/time_depart',
       SEGMENT_END_TIME: '/transcription/:id_reunion/segment/:id_segment/time_fin'
     },
@@ -33,12 +37,18 @@ export const API_CONFIG = {
     MEETINGS: {
       CREATE: '/meeting',
       GET_ALL: '/meeting/all',
-      GET_BY_ID: '/meeting/:id_meeting',
-      GET_PARTICIPANTS: '/meeting/:id_meeting/participant/all',
-      ADD_PARTICIPANT: '/meeting/:id_meeting/participant',
-      REMOVE_PARTICIPANT: '/meeting/:id_meeting/participant/:id_participant',
+      GET_BY_ID: '/meeting/:meetingId',
+      GET_PARTICIPANTS: '/meeting/:meetingId/participant/all',
+      ADD_PARTICIPANT: '/meeting/:meetingId/participant',
+      REMOVE_PARTICIPANT: '/meeting/:meetingId/participant/:participantId',
       SEARCH_BY_TITLE: '/meeting/search/byTitle',
-      START_MEETING: '/start_meeting/:id_meeting'
+      START_MEETING: '/meeting/:meetingId/start',
+      END_MEETING: '/meeting/:meetingId/end'
+    },
+    
+    // Routes des participants
+    PARTICIPANTS: {
+      GET_ALL: '/participant/all'
     },
     
     // Routes des utilisateurs
@@ -121,20 +131,28 @@ export const ENDPOINTS = {
   // Réunions
   CREATE_MEETING: buildApiUrl(API_CONFIG.ROUTES.MEETINGS.CREATE),
   LIST_MEETINGS: buildApiUrl(API_CONFIG.ROUTES.MEETINGS.GET_ALL),
-  GET_MEETING: (id) => buildApiUrl(API_CONFIG.ROUTES.MEETINGS.GET_BY_ID, { id_meeting: id }),
-  LIST_PARTICIPANTS: (id) => buildApiUrl(API_CONFIG.ROUTES.MEETINGS.GET_PARTICIPANTS, { id_meeting: id }),
-  ADD_PARTICIPANT: (id) => buildApiUrl(API_CONFIG.ROUTES.MEETINGS.ADD_PARTICIPANT, { id_meeting: id }),
-  REMOVE_PARTICIPANT: (meetingId, participantId) => buildApiUrl(API_CONFIG.ROUTES.MEETINGS.REMOVE_PARTICIPANT, { id_meeting: meetingId, id_participant: participantId }),
+  GET_MEETING: (id) => buildApiUrl(API_CONFIG.ROUTES.MEETINGS.GET_BY_ID, { meetingId: id }),
+  LIST_PARTICIPANTS: (id) => buildApiUrl(API_CONFIG.ROUTES.MEETINGS.GET_PARTICIPANTS, { meetingId: id }),
+  ADD_PARTICIPANT: (id) => buildApiUrl(API_CONFIG.ROUTES.MEETINGS.ADD_PARTICIPANT, { meetingId: id }),
+  REMOVE_PARTICIPANT: (meetingId, participantId) => buildApiUrl(API_CONFIG.ROUTES.MEETINGS.REMOVE_PARTICIPANT, { meetingId, participantId }),
   SEARCH_MEETING_BY_TITLE: (title) => `${buildApiUrl(API_CONFIG.ROUTES.MEETINGS.SEARCH_BY_TITLE)}?title=${encodeURIComponent(title)}`,
-  START_MEETING: (id) => buildApiUrl(API_CONFIG.ROUTES.MEETINGS.START_MEETING, { id_meeting: id }),
+  START_MEETING: (id) => buildApiUrl(API_CONFIG.ROUTES.MEETINGS.START_MEETING, { meetingId: id }),
+  END_MEETING: (id) => buildApiUrl(API_CONFIG.ROUTES.MEETINGS.END_MEETING, { meetingId: id }),
+
+  // Participants
+  GET_ALL_PARTICIPANTS: buildApiUrl(API_CONFIG.ROUTES.PARTICIPANTS.GET_ALL),
 
   // Transcription
+  CREATE_TRANSCRIPTION: (meetingId) => buildApiUrl(API_CONFIG.ROUTES.TRANSCRIPTION.CREATE, { id_reunion: meetingId }),
+  SEND_SEGMENT: (meetingId) => buildApiUrl(API_CONFIG.ROUTES.TRANSCRIPTION.SEND_SEGMENT, { id_reunion: meetingId }),
+  SEGMENT_TO_BDD: (meetingId) => buildApiUrl(API_CONFIG.ROUTES.TRANSCRIPTION.SEGMENT_TO_BDD, { id_reunion: meetingId }),
   LIST_SEGMENTS: (meetingId) => buildApiUrl(API_CONFIG.ROUTES.TRANSCRIPTION.SEGMENTS_ALL, { id_reunion: meetingId }),
   SEGMENT_DETAILS: (meetingId, segmentId) => buildApiUrl(API_CONFIG.ROUTES.TRANSCRIPTION.SEGMENT_BY_ID, { id_reunion: meetingId, id_segment: segmentId }),
   UPDATE_SEGMENT: (meetingId, segmentId) => buildApiUrl(API_CONFIG.ROUTES.TRANSCRIPTION.SEGMENT_UPDATE, { id_reunion: meetingId, id_segment: segmentId }),
   LIST_SEGMENT_SPEAKERS: (meetingId, segmentId) => buildApiUrl(API_CONFIG.ROUTES.TRANSCRIPTION.SEGMENT_SPEAKERS, { id_reunion: meetingId, id_segment: segmentId }),
   UPDATE_SEGMENT_SPEAKER: (meetingId, segmentId, participantId) => buildApiUrl(API_CONFIG.ROUTES.TRANSCRIPTION.SEGMENT_SPEAKER_UPDATE, { id_reunion: meetingId, id_segment: segmentId, id_participant: participantId }),
-  GET_RECORD_FILE: (meetingId) => buildApiUrl(API_CONFIG.ROUTES.TRANSCRIPTION.RECORD_FILE, { id_reunion: meetingId }),
+  GET_RECORD_FILE: (meetingId) => buildApiUrl(API_CONFIG.ROUTES.TRANSCRIPTION.GET_RECORD_FILE, { id_reunion: meetingId }),
+  SAVE_RECORD_FILE: (meetingId) => buildApiUrl(API_CONFIG.ROUTES.TRANSCRIPTION.SAVE_RECORD_FILE, { id_reunion: meetingId }),
   GET_SEGMENT_START: (meetingId, segmentId) => buildApiUrl(API_CONFIG.ROUTES.TRANSCRIPTION.SEGMENT_START_TIME, { id_reunion: meetingId, id_segment: segmentId }),
   GET_SEGMENT_END: (meetingId, segmentId) => buildApiUrl(API_CONFIG.ROUTES.TRANSCRIPTION.SEGMENT_END_TIME, { id_reunion: meetingId, id_segment: segmentId }),
 

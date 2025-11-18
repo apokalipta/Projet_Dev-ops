@@ -327,12 +327,17 @@
         @back="backToHome" 
         @go-to-plan="planMeeting"
         @view-meeting="viewMeeting"
+        @manage-participants="manageParticipants"
       />
     </div>
 
     <!-- Page de Visualisation de Réunion -->
     <div v-if="currentPage === 'view'" class="meeting-viewer">
-      <MeetingViewer :meeting-id="currentMeetingId" @back="backToMeetingsList" />
+      <MeetingViewer 
+        :meeting-id="currentMeetingId" 
+        @back="backToMeetingsList"
+        @manage-participants="manageParticipants"
+      />
     </div>
 
     <!-- Page de Démarrage de Réunion -->
@@ -342,6 +347,14 @@
         @go-to-plan="planMeeting"
         @meeting-started="onMeetingStarted"
         @view-meeting="viewMeeting"
+      />
+    </div>
+
+    <!-- Page de Gestion des Participants -->
+    <div v-if="currentPage === 'manage-participants'">
+      <ManageParticipants 
+        :meeting-id="currentMeetingId"
+        @back="backToMeetingsList"
       />
     </div>
   </div>
@@ -354,6 +367,7 @@ import MeetingsList from './components/MeetingsList.vue';
 import AssignParticipants from './components/AssignParticipants.vue';
 import StartMeeting from './components/StartMeeting.vue';
 import MeetingViewer from './components/MeetingViewer.vue';
+import ManageParticipants from './components/ManageParticipants.vue';
 
 export default {
   name: 'App',
@@ -362,7 +376,8 @@ export default {
     AssignParticipants,
     MeetingsList,
     StartMeeting,
-    MeetingViewer
+    MeetingViewer,
+    ManageParticipants
   },
   data() {
     return {
@@ -393,6 +408,10 @@ export default {
     viewMeeting(meetingId) {
       this.currentMeetingId = meetingId;
       this.currentPage = 'view';
+    },
+    manageParticipants(meetingId) {
+      this.currentMeetingId = meetingId;
+      this.currentPage = 'manage-participants';
     },
     onMeetingCreated(meetingData) {
       this.createdMeeting = meetingData;
