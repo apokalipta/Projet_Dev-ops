@@ -11,13 +11,11 @@ public class Segment {
     @Column(name = "id_segment")
     private Long id;
 
-//A CONFIRMER stocké en tant qu'ID de la transcription au lieu de l'objet entier
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "id_transcript", nullable = false)
     //private Long id_transcript;
     private Transcription transcription;
 
-    
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "id_locuteur", nullable = false)
     //private Long id_locuteur;
@@ -52,18 +50,19 @@ public class Segment {
         this.transcription = transcription;
     }
     
-    public Locuteur getLocuteur() {
-        return locuteur;
+    public String getLocuteurName() {
+        return locuteur.getName();
         //return id_locuteur;
+    }
+
+    public Locuteur getLocuteur(){
+        return locuteur;
     }
 
     public void setLocuteur(Locuteur locuteur) {
        this.locuteur = locuteur;
     }
-    /*public void setId_locuteur(Long id_locuteur) {
-        this.id_locuteur = id_locuteur;    
-    }*/
-
+  
     public Double getTimeDepart() {
         return timeDepart;
     }

@@ -5,11 +5,14 @@ import jakarta.transaction.Transactional;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
+import com.meeting.microservices.TranscriptionDB.SegmentDTO;
+
 import com.meeting.microservices.TranscriptionDB.LocuteurRepository;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -22,6 +25,7 @@ import org.apache.http.impl.client.HttpClients;
 import org.jboss.resteasy.reactive.RestForm;
 import org.jboss.resteasy.reactive.multipart.FileUpload;
 import java.nio.file.Files;
+import org.apache.http.util.EntityUtils;
 
 
 
@@ -41,7 +45,7 @@ public class TranscriptionResource {
 
 //MODIF PAR MAX A CONFIRMER
    // ==========================================================
-    //  POST /api/start_transcription
+    //  POST /api/start_transcription ✅
     // ==========================================================
     @POST
     @Path("/start_transcription/{id_reunion}") //Creation de la transcription lors du démarrage réunion
@@ -55,7 +59,7 @@ public class TranscriptionResource {
 
     //ADD PAR MAX
     // ==========================================================
-    //  POST /api/transcription/{id_transcription}/send_segment
+    //  POST /api/transcription/{id_transcription}/send_segment ✅
     // ==========================================================
 
     @POST
@@ -64,6 +68,8 @@ public class TranscriptionResource {
     @Transactional
     public Response Transcription(@PathParam("id_reunion") Long idReunion, @RestForm FileUpload file) {
                 // Vérifier que le fichier est présent
+                String filename = file.fileName();
+                System.out.println("📁 Fichier reçu :"+filename);
                 if (file == null || file.uploadedFile() == null) {
                     return Response.status(Response.Status.BAD_REQUEST)
                             .entity("Aucun fichier fourni").build();
@@ -79,19 +85,40 @@ public class TranscriptionResource {
 
                 //Envoyer le fichier à l'IA pour transcription
                 String fastApiUrl = "http://localhost:8000/transcribe/?ID_reunion=" + idReunion;
+                System.out.println("Contenu requête vers IA : "+fastApiUrl);
 
                 try (CloseableHttpClient client = HttpClients.createDefault()) {
-
+                    
                     HttpPost post = new HttpPost(fastApiUrl);
                     MultipartEntityBuilder builder = MultipartEntityBuilder.create();
                     builder.addBinaryBody(
                         "file",
                         audioBytes,
                         ContentType.DEFAULT_BINARY,
-                        "segment.mp3"  // nom fictif pour FastAPI
+                        filename  // nom fictif pour FastAPI
                     );
 
                     post.setEntity(builder.build());
+                    
+                    System.out.println("👉 Envoi requête vers l'IA…");
+
+                    // ---- Exécuter la requête ----
+                    try (CloseableHttpResponse response = client.execute(post)) {
+
+                        int statusCode = response.getStatusLine().getStatusCode();
+                        System.out.println("📡 Code retour FastAPI : " + statusCode);
+
+                        String responseBody = "";
+                        if (response.getEntity() != null) {
+                            responseBody = EntityUtils.toString(response.getEntity());
+                        }
+
+                        System.out.println("📩 Réponse IA : " + responseBody);
+
+                        if (statusCode != 200 && statusCode != 202) {
+                            System.err.println("⚠️ Erreur lors de l’envoi au service IA");
+                        }
+                    }
 
                 } catch (Exception e) {
                     e.printStackTrace();
@@ -101,7 +128,7 @@ public class TranscriptionResource {
 
     //ADD PAR MAX
     // ==========================================================
-    //  POST /api/transcription/{id_transcription}/segment_to_bdd
+    //  POST /api/transcription/{id_transcription}/segment_to_bdd ✅
     // ==========================================================
     @POST
     @Path("/transcription/{id_reunion}/segment_to_bdd") //Envoi d'un segment audio pour transcription
@@ -143,28 +170,20 @@ public class TranscriptionResource {
     private Segment parseSegment(JsonNode node, Long idReunion) {
         Segment segment = new Segment();
 
-        String idLocuteur = node.has("speaker") ? node.get("speaker").asText() : "SPEAKER_XX";
+        String speakerID = node.has("speaker") ? node.get("speaker").asText() : "SPEAKER_XX";
         double timeDepart = node.has("start") ? node.get("start").asDouble() : 0.0;
         double timeEnd = node.has("end") ? node.get("end").asDouble() : 0.0;
         String texte = node.has("text") ? node.get("text").asText().strip() : "";
 
         // Récupérer ou créer le locuteur
-        String locuteurName = idLocuteur.replace("SPEAKER_", "");
-        Long locuteurId;
-        try {
-            locuteurId = Long.parseLong(locuteurName);
-        } catch (NumberFormatException e) {
-            locuteurId = 1L; // ID par défaut si le nom ne peut pas être converti
-        }
+        String locuteurName = speakerID.replace("SPEAKER_", "");
         
-        Locuteur locuteur = locuteurRepo.findById(locuteurId);
+        Locuteur locuteur = locuteurRepo.findByName(locuteurName);
         if (locuteur == null) {
             // Créer un nouveau locuteur s'il n'existe pas
             locuteur = new Locuteur();
-            locuteur.setId(locuteurId);
             locuteur.setName(locuteurName);
-            // Utiliser merge au lieu de persist car l'ID est déjà défini
-            locuteurRepo.update(locuteur);
+            locuteurRepo.save(locuteur);
         }
         
         segment.setTranscription(transcriptionRepo.findByReunionId(idReunion));     
@@ -178,21 +197,22 @@ public class TranscriptionResource {
         return segment;
     }
 
-
-
-
     // ==========================================================
-    //  GET /api/transcription/{id_reunion}/segment/all
+    //  GET /api/transcription/{id_reunion}/segment/all ✅
     // ==========================================================
     @GET
     @Path("/transcription/{id_reunion}/segment/all")
     public Response listSegmentsByReunion(@PathParam("id_reunion") Long idReunion) {
         List<Segment> segments = segmentRepo.listByReunion(idReunion);
-        return Response.ok(segments).build();
+        System.out.println("Nb segments = " + segments.size());
+        List<SegmentDTO> dtoList = segments.stream()
+                                       .map(SegmentDTO::new)
+                                       .collect(Collectors.toList());
+        return Response.ok(dtoList).build();
     }
 
     // ==========================================================
-    //  GET /api/transcription/{id_reunion}/segment/{id_segment}
+    //  GET /api/transcription/{id_reunion}/segment/{id_segment} ✅
     // ==========================================================
     @GET
     @Path("/transcription/{id_reunion}/segment/{id_segment}")
@@ -204,7 +224,11 @@ public class TranscriptionResource {
         if (segment == null || !segment.getTranscription().getIdReunion().equals(idReunion)) {
             return Response.status(Response.Status.NOT_FOUND).build();
         }
-        return Response.ok(segment).build();
+
+        // Construire le DTO
+        SegmentDTO dto = new SegmentDTO(segment);
+
+        return Response.ok(dto).build();
     }
 
     // ==========================================================
@@ -225,11 +249,14 @@ public class TranscriptionResource {
 
         segment.setTexte(updatedSegment.getTexte());
         segmentRepo.update(segment);
-        return Response.status(Response.Status.ACCEPTED).entity(segment).build();
+        // Retourner un DTO pour éviter de renvoyer l'audio binaire
+        SegmentDTO dto = new SegmentDTO(segment);
+
+        return Response.ok(dto).build();
     }
 
     // ==========================================================
-    //  GET /api/transcription/{id_reunion}/segment/{id_segment}/locuteur/all
+    //  GET /api/transcription/{id_reunion}/segment/{id_segment}/locuteur/all ✅
     // ==========================================================
     @GET
     @Path("/transcription/{id_reunion}/segment/{id_segment}/locuteur/all")
@@ -241,11 +268,11 @@ public class TranscriptionResource {
         if (segment == null || !segment.getTranscription().getIdReunion().equals(idReunion)) {
             return Response.status(Response.Status.NOT_FOUND).build();
         }
-        return Response.ok(segment.getLocuteur()).build();
+        return Response.ok(segment.getLocuteurName()).build();
     }
 
     // ==========================================================
-    //  PUT /api/transcription/{id_reunion}/segment/{id_segment}/locuteur/{id_participant}
+    //  PUT /api/transcription/{id_reunion}/segment/{id_segment}/locuteur/{id_participant} ✅
     // ==========================================================
     @PUT
     @Path("/transcription/{id_reunion}/segment/{id_segment}/locuteur/{id_participant}")
@@ -257,7 +284,7 @@ public class TranscriptionResource {
 
         Segment segment = segmentRepo.findById(idSegment);
         if (segment == null) {
-            return Response.status(Response.Status.NOT_FOUND).build();
+            return Response.status(Response.Status.NOT_FOUND).entity("Segment introuvable").build();
         }
 
         Locuteur locuteur = locuteurRepo.findById(idParticipant);
@@ -268,11 +295,13 @@ public class TranscriptionResource {
 
         segment.setLocuteur(locuteur);
         segmentRepo.update(segment);
-        return Response.status(Response.Status.ACCEPTED).entity(segment).build();
-    }
+        // Retourner un DTO pour éviter de renvoyer l'audio binaire
+        SegmentDTO dto = new SegmentDTO(segment);
+
+        return Response.ok(dto).build();    }
 
     // ==========================================================
-    //  GET /api/transcription/{id_reunion}/obtain_record_file
+    //  GET /api/transcription/{id_reunion}/obtain_record_file ✅
     // ==========================================================
     @GET
     @Path("/transcription/{id_reunion}/obtain_record_file")
@@ -286,7 +315,7 @@ public class TranscriptionResource {
 
     //ADD PAR MAX
      // ==========================================================
-    //  POST /api/transcription/{id_reunion}/save_record_file
+    //  POST /api/transcription/{id_reunion}/save_record_file ✅
     // ==========================================================
     @POST
     @Path("/transcription/{id_reunion}/save_record_file")
@@ -327,7 +356,7 @@ public class TranscriptionResource {
     }
  
     // ==========================================================
-    //  GET /api/transcription/{id_reunion}/segment/{id_segment}/time_depart
+    //  GET /api/transcription/{id_reunion}/segment/{id_segment}/time_depart ✅
     // ==========================================================
     @GET
     @Path("/transcription/{id_reunion}/segment/{id_segment}/time_depart")
@@ -342,7 +371,7 @@ public class TranscriptionResource {
     }
 
     // ==========================================================
-    //  GET /api/transcription/{id_reunion}/segment/{id_segment}/time_fin
+    //  GET /api/transcription/{id_reunion}/segment/{id_segment}/time_fin ✅
     // ==========================================================
     @GET
     @Path("/transcription/{id_reunion}/segment/{id_segment}/time_fin")

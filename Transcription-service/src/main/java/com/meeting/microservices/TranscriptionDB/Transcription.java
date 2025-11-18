@@ -18,7 +18,7 @@ public class Transcription {
     private String recordFileName;
 
     @Lob
-    @Column(name = "record_file_data", columnDefinition = "BLOB")
+    @Column(name = "record_file_data", columnDefinition = "LONGBLOB")
     private byte[] recordFileData;
 
     @Column(name = "id_fat")

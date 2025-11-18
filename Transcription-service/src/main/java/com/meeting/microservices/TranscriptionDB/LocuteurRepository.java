@@ -24,6 +24,10 @@ public class LocuteurRepository {
         return em.find(Locuteur.class, idLocuteur);
     }
 
+    public Locuteur findByName(String NameLocuteur) {
+        return em.find(Locuteur.class, NameLocuteur);
+    } 
+
     public void save(Locuteur s) {
         em.persist(s);
     }
