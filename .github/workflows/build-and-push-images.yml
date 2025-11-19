@@ -86,7 +86,8 @@ jobs:
           platforms: linux/amd64,linux/arm64
 
       - name: Image digest for ${{ matrix.service.name }}
-        run: echo "${{ matrix.service.name }} image digest: ${{ steps.build.outputs.digest }}"
+        run: |
+          echo "${{ matrix.service.name }} image built successfully"
 
   summary:
     runs-on: ubuntu-latest
