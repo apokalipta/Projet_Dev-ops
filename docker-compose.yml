@@ -12,6 +12,11 @@ services:
       - mysql_transcription_data:/var/lib/mysql
     networks:
       - transcription-network
+    command: 
+      - --innodb-force-recovery=0
+      - --innodb-fast-shutdown=0
+      - --skip-external-locking
+      - --skip-name-resolve
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-proot"]
       interval: 10s
@@ -20,9 +25,7 @@ services:
 
   # Transcription-service (Quarkus)
   transcription-service:
-    build:
-      context: .
-      dockerfile: Transcription-service/Dockerfile
+    image: ${TRANSCRIPTION_SERVICE_IMAGE:-ghcr.io/your-username/transcription-service:latest}
     container_name: transcription-service
     ports:
       - "8082:8082"
@@ -46,9 +49,7 @@ services:
 
   # AI Service (Python FastAPI)
   ai-service:
-    build:
-      context: ${AI_SERVICE_PATH:-./ai-service}
-      dockerfile: Dockerfile
+    image: ${AI_SERVICE_IMAGE:-ghcr.io/your-username/ai-service:latest}
     container_name: ai-service
     ports:
       - "8000:8000"
