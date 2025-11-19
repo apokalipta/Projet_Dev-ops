@@ -1,0 +1,39 @@
+# Gradle
+.gradle/
+build/
+bin/
+*.class
+
+# IDE
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+.project
+.classpath
+.settings/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Git
+.git/
+.gitignore
+
+# Documentation
+*.md
+!README.md
+
+# Other services (not needed for transcription-service build)
+Meeting-service/
+app/
+list/
+utilities/
+Web-UI-service/
+App-UI-service/
+
+# Test files
+**/test/
+
