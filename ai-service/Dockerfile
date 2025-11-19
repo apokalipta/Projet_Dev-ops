@@ -23,12 +23,29 @@ WORKDIR /Transcription_AI
 #COPY whisperx/ ./whisperX
 #On copie le dossier whisperX dans le container pour pouvoir l'installer via le requirements.txt
 
-# Installer + upgrader pip et installer torchcodec avant les autres dépendances pour éviter des conflits de versions
-RUN python3 -m pip install --upgrade pip && pip install torchcodec && pip install pydub
+# Installer + upgrader pip et outils de build
+RUN python3 -m pip install --upgrade pip setuptools wheel && \
+    pip cache purge
 
 # Copier les fichiers de dépendances
 COPY requirements.txt ./
-RUN python3 -m pip install -r requirements.txt
+
+# Installer torchcodec avant les autres dépendances pour éviter des conflits de versions
+RUN python3 -m pip install --no-cache-dir torchcodec pydub && \
+    pip cache purge
+
+# Installer les dépendances avec nettoyage du cache après
+RUN python3 -m pip install --no-cache-dir --timeout=300 -r requirements.txt && \
+    pip cache purge && \
+    find /usr/local/lib/python3.11 -type d -name __pycache__ -exec rm -r {} + 2>/dev/null || true && \
+    find /usr/local/lib/python3.11 -type f -name "*.pyc" -delete && \
+    find /usr/local/lib/python3.11 -type f -name "*.pyo" -delete
+
+# Nettoyer les outils de build qui ne sont plus nécessaires après l'installation
+RUN apt-get purge -y build-essential cmake && \
+    apt-get autoremove -y && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 COPY . . 
 #. (host) → . (container, qui est /AI_transcription_API à cause du WORKDIR)
