@@ -356,7 +356,14 @@ public class TranscriptionResource {
 
                 // Ici, vous pouvez également sauvegarder le fichier audio sur le serveur si nécessaire
 
-                return Response.status(Response.Status.ACCEPTED).entity("Fichier enregistré avec succès").build();
+                // Créer une réponse JSON simple avec ObjectMapper
+                ObjectMapper mapper = new ObjectMapper();
+                com.fasterxml.jackson.databind.node.ObjectNode jsonResponse = mapper.createObjectNode();
+                jsonResponse.put("message", "Fichier enregistré avec succès");
+                jsonResponse.put("fileName", fileName);
+                jsonResponse.put("meetingId", idReunion);
+                
+                return Response.status(Response.Status.ACCEPTED).entity(jsonResponse).build();
     }
  
     // ==========================================================
