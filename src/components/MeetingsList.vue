@@ -87,7 +87,7 @@
           v-for="meeting in filteredMeetings" 
           :key="meeting.id"
           class="meeting-card-view"
-          @click="viewMeetingDetails(meeting.id)"
+          @click="viewMeetingDetails(meeting)"
         >
           <div class="meeting-card-header">
             <div class="meeting-status-badge" :class="`status-${meeting.status}`">
@@ -128,7 +128,7 @@
           </div>
 
           <div class="meeting-card-footer">
-            <button class="btn-view" @click.stop="viewMeetingDetails(meeting.id)">
+            <button class="btn-view" @click.stop="viewMeetingDetails(meeting)">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
                 <circle cx="12" cy="12" r="3"/>
@@ -147,6 +147,19 @@
                 <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
               </svg>
               Participants
+            </button>
+            <button 
+              class="btn-delete" 
+              @click.stop="confirmDeleteMeeting(meeting)"
+              title="Supprimer la réunion"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="3 6 5 6 21 6"/>
+                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                <line x1="10" y1="11" x2="10" y2="17"/>
+                <line x1="14" y1="11" x2="14" y2="17"/>
+              </svg>
+              Supprimer
             </button>
           </div>
         </div>
@@ -210,8 +223,10 @@ export default {
     }
   },
   
-  mounted() {
-    this.loadMeetings()
+  async mounted() {
+    // Vider le cache avant de charger pour avoir les données fraîches
+    await this.clearCache()
+    await this.loadMeetings()
   },
   
   watch: {
@@ -221,28 +236,48 @@ export default {
   },
   
   methods: {
+    async clearCache() {
+      try {
+        const { cacheService } = await import('../services/cacheService.js')
+        const cacheKey = 'GET:http://localhost:8081/api/meeting/all'
+        await cacheService.delete(cacheKey)
+        console.log('🗑️ Cache vidé avant chargement des réunions')
+      } catch (error) {
+        console.warn('Erreur lors du vidage du cache:', error)
+      }
+    },
     async loadMeetings() {
       this.isLoading = true
       this.error = null
       
       try {
+        console.log('📡 Chargement des réunions depuis /api/meeting/all...')
         const response = await apiService.getAllMeetings()
+        console.log('📥 Réponse brute reçue:', response)
+        console.log('📊 Type de réponse:', typeof response, 'Est un tableau?', Array.isArray(response))
         
         // Gérer différents formats de réponse
         if (Array.isArray(response)) {
           this.meetings = response
+          console.log('✅ Format tableau détecté, nombre de réunions:', response.length)
         } else if (response?.data && Array.isArray(response.data)) {
           this.meetings = response.data
+          console.log('✅ Format response.data détecté, nombre de réunions:', response.data.length)
         } else if (response?.meetings && Array.isArray(response.meetings)) {
           this.meetings = response.meetings
+          console.log('✅ Format response.meetings détecté, nombre de réunions:', response.meetings.length)
         } else {
+          console.warn('⚠️ Format de réponse non reconnu, initialisation à tableau vide')
           this.meetings = []
         }
         
+        console.log('📋 Réunions chargées dans this.meetings:', this.meetings.length, this.meetings)
+        
         // Appliquer les filtres après le chargement
         this.filterMeetings()
+        console.log('🔍 Après filtrage, réunions affichées:', this.filteredMeetings.length, this.filteredMeetings)
       } catch (err) {
-        console.error('Erreur lors du chargement des réunions:', err)
+        console.error('❌ Erreur lors du chargement des réunions:', err)
         this.error = err?.message || 'Impossible de charger les réunions. Veuillez réessayer.'
         this.filteredMeetings = []
       } finally {
@@ -250,8 +285,9 @@ export default {
       }
     },
     
-    refreshMeetings() {
-      this.loadMeetings()
+    async refreshMeetings() {
+      await this.clearCache()
+      await this.loadMeetings()
     },
     
     filterMeetings() {
@@ -286,12 +322,37 @@ export default {
       this.filterMeetings()
     },
 
-    viewMeetingDetails(meetingId) {
-      this.$emit('view-meeting', meetingId)
+    viewMeetingDetails(meeting) {
+      this.$emit('view-meeting', meeting)
     },
     
     manageParticipants(meetingId) {
       this.$emit('manage-participants', meetingId)
+    },
+
+    confirmDeleteMeeting(meeting) {
+      if (confirm(`Êtes-vous sûr de vouloir supprimer la réunion "${meeting.title}" ?\n\nCette action est irréversible.`)) {
+        this.deleteMeeting(meeting.id)
+      }
+    },
+
+    async deleteMeeting(meetingId) {
+      try {
+        console.log(`🗑️ Suppression de la réunion ID: ${meetingId}...`)
+        await apiService.deleteMeeting(meetingId)
+        
+        // Supprimer localement de la liste
+        this.meetings = this.meetings.filter(m => m.id !== meetingId)
+        
+        // Vider le cache et recharger pour être sûr
+        await this.clearCache()
+        
+        alert('✅ Réunion supprimée avec succès !')
+        console.log('✅ Réunion supprimée')
+      } catch (error) {
+        console.error('❌ Erreur lors de la suppression:', error)
+        alert(error?.message || '❌ Erreur lors de la suppression de la réunion')
+      }
     },
 
     getStatusLabel(status) {
@@ -613,6 +674,34 @@ export default {
 }
 
 .btn-manage svg {
+  width: 18px;
+  height: 18px;
+}
+
+.btn-delete {
+  padding: 0.75rem;
+  background: #fee2e2;
+  color: #991b1b;
+  border: 1px solid #fca5a5;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  transition: all 0.3s ease;
+  min-width: 120px;
+}
+
+.btn-delete:hover {
+  background: #fecaca;
+  border-color: #f87171;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+}
+
+.btn-delete svg {
   width: 18px;
   height: 18px;
 }

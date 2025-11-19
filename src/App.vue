@@ -61,7 +61,7 @@
                 </svg>
               </div>
               <div class="stat-content">
-                <h3 class="stat-number">12</h3>
+                <h3 class="stat-number">{{ stats.scheduledMeetings }}</h3>
                 <p class="stat-label">Réunions planifiées</p>
               </div>
             </div>
@@ -74,36 +74,8 @@
                 </svg>
               </div>
               <div class="stat-content">
-                <h3 class="stat-number">45</h3>
+                <h3 class="stat-number">{{ stats.completedMeetings }}</h3>
                 <p class="stat-label">Réunions terminées</p>
-              </div>
-            </div>
-
-            <div class="stat-card">
-              <div class="stat-icon stat-icon-warning">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <circle cx="12" cy="12" r="10"/>
-                  <polyline points="12,6 12,12 16,14"/>
-                </svg>
-              </div>
-              <div class="stat-content">
-                <h3 class="stat-number">24h</h3>
-                <p class="stat-label">Temps total transcrit</p>
-              </div>
-            </div>
-
-            <div class="stat-card">
-              <div class="stat-icon stat-icon-info">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
-                  <circle cx="9" cy="7" r="4"/>
-                  <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
-                  <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
-                </svg>
-              </div>
-              <div class="stat-content">
-                <h3 class="stat-number">8</h3>
-                <p class="stat-label">Participants actifs</p>
               </div>
             </div>
           </div>
@@ -357,6 +329,15 @@
         @back="backToMeetingsList"
       />
     </div>
+
+    <!-- Page d'Enregistrement de Réunion -->
+    <div v-if="currentPage === 'record'">
+      <RecordMeeting 
+        :meeting-id="currentMeetingId"
+        @back="backFromRecord"
+        @meeting-ended="onMeetingEnded"
+      />
+    </div>
   </div>
 </template>
 
@@ -368,6 +349,8 @@ import AssignParticipants from './components/AssignParticipants.vue';
 import StartMeeting from './components/StartMeeting.vue';
 import MeetingViewer from './components/MeetingViewer.vue';
 import ManageParticipants from './components/ManageParticipants.vue';
+import RecordMeeting from './components/RecordMeeting.vue';
+import { apiService } from './services/api.js';
 
 export default {
   name: 'App',
@@ -377,16 +360,41 @@ export default {
     MeetingsList,
     StartMeeting,
     MeetingViewer,
-    ManageParticipants
+    ManageParticipants,
+    RecordMeeting
   },
   data() {
     return {
       currentPage: 'home',
       createdMeeting: null,
-      currentMeetingId: null
+      currentMeetingId: null,
+      previousPage: null, // Pour mémoriser d'où on vient
+      stats: {
+        scheduledMeetings: 0,
+        completedMeetings: 0
+      }
     };
   },
+  async mounted() {
+    await this.loadStats();
+  },
   methods: {
+    async loadStats() {
+      try {
+        // Charger toutes les réunions
+        const meetings = await apiService.getAllMeetings();
+        const meetingsArray = Array.isArray(meetings) ? meetings : [];
+        
+        // Calculer les statistiques des réunions
+        this.stats.scheduledMeetings = meetingsArray.filter(m => m.status === 'scheduled').length;
+        this.stats.completedMeetings = meetingsArray.filter(m => m.status === 'completed').length;
+        
+        console.log('📊 Statistiques chargées:', this.stats);
+      } catch (error) {
+        console.error('❌ Erreur lors du chargement des statistiques:', error);
+        // Garder les valeurs par défaut (0) en cas d'erreur
+      }
+    },
     planMeeting() {
       this.currentPage = 'setup';
     },
@@ -396,8 +404,10 @@ export default {
     viewMeetingsList() {
       this.currentPage = 'meetings-list';
     },
-    backToHome() {
+    async backToHome() {
       this.currentPage = 'home';
+      // Recharger les statistiques quand on revient à l'accueil
+      await this.loadStats();
     },
     backToMeetingsList() {
       this.currentPage = 'meetings-list';
@@ -405,9 +415,26 @@ export default {
     backToSetup() {
       this.currentPage = 'setup';
     },
-    viewMeeting(meetingId) {
-      this.currentMeetingId = meetingId;
-      this.currentPage = 'view';
+    viewMeeting(meeting) {
+      // Vérifier si on reçoit un objet meeting ou juste un ID (rétrocompatibilité)
+      if (typeof meeting === 'object' && meeting !== null) {
+        this.currentMeetingId = meeting.id;
+        
+        // Si la réunion est terminée, afficher la page de visualisation avec transcription
+        if (meeting.status === 'completed') {
+          this.currentPage = 'view';
+          console.log('📄 Redirection vers la page de visualisation (réunion terminée)');
+        } else {
+          // Sinon, afficher la page d'enregistrement (scheduled ou in_progress)
+          this.previousPage = 'meetings-list';
+          this.currentPage = 'record';
+          console.log('🎙️ Redirection vers la page d\'enregistrement (réunion active)');
+        }
+      } else {
+        // Rétrocompatibilité : si on reçoit juste un ID
+        this.currentMeetingId = meeting;
+        this.currentPage = 'view';
+      }
     },
     manageParticipants(meetingId) {
       this.currentMeetingId = meetingId;
@@ -415,7 +442,10 @@ export default {
     },
     onMeetingCreated(meetingData) {
       this.createdMeeting = meetingData;
-      this.currentPage = 'assign-participants';
+      console.log('✅ Réunion créée dans App.vue:', meetingData);
+      // Rediriger vers la liste des réunions au lieu d'assign-participants
+      // car les participants sont maintenant créés directement avec la réunion
+      this.currentPage = 'meetings-list';
     },
     onParticipantsAssigned(participants) {
       console.log('Participants assignés:', participants);
@@ -423,8 +453,25 @@ export default {
     },
     onMeetingStarted(data) {
       console.log('Réunion démarrée:', data);
-      // Ici vous pourriez rediriger vers la page de transcription en cours
-      // this.currentPage = 'transcription-active';
+      // Mémoriser qu'on vient de "Commencer une réunion"
+      this.previousPage = 'start-meeting';
+      // Rediriger vers la page d'enregistrement
+      this.currentMeetingId = data.meeting.id;
+      this.currentPage = 'record';
+    },
+    backFromRecord() {
+      // Retourner à la page d'où on vient (start-meeting ou meetings-list)
+      if (this.previousPage === 'meetings-list') {
+        this.currentPage = 'meetings-list';
+      } else {
+        this.currentPage = 'start-meeting';
+      }
+      this.previousPage = null;
+    },
+    onMeetingEnded(meetingId) {
+      console.log('Réunion terminée:', meetingId);
+      // Recharger les stats et retourner à l'accueil
+      this.loadStats();
     }
   }
 };

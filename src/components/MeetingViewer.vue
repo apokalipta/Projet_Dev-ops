@@ -201,7 +201,6 @@
 
 <script>
 import { apiService } from '../services/api.js'
-import { API_CONFIG } from '../config/api.js'
 
 export default {
   name: 'MeetingViewer',
@@ -241,8 +240,7 @@ export default {
   computed: {
     hasAudio() {
       // Vérifier si un fichier audio est disponible
-      // Le backend peut retourner recordFileName ou recordFileData
-      return !!(this.meeting.audioFile || this.meeting.recordFileName)
+      return Boolean(this.meeting.audioFile || this.meeting.recordFileUrl || this.meeting.recordFileName)
     },
 
     progress() {
@@ -294,7 +292,22 @@ export default {
       try {
         // Charger les données de la réunion depuis l'API
         const meetingResponse = await apiService.getMeetingById(this.meetingId)
-        this.meeting = meetingResponse
+        
+        // Charger les segments de transcription depuis le service de transcription
+        let segments = []
+        try {
+          const segmentsResponse = await apiService.getAllSegments(this.meetingId)
+          segments = Array.isArray(segmentsResponse) ? segmentsResponse : []
+          console.log('📥 Segments chargés:', segments.length)
+        } catch (err) {
+          console.warn('⚠️ Impossible de charger les segments de transcription:', err)
+          segments = meetingResponse?.segments || []
+        }
+        
+        this.meeting = {
+          ...meetingResponse,
+          segments: segments
+        }
         
         // Charger les participants
         try {
@@ -303,25 +316,6 @@ export default {
         } catch (err) {
           console.warn('Impossible de charger les participants:', err)
           this.meeting.participants = []
-        }
-        
-        // Charger les segments de transcription si disponibles
-        try {
-          const segmentsResponse = await apiService.getSegments(this.meetingId)
-          this.meeting.segments = Array.isArray(segmentsResponse) ? segmentsResponse : []
-        } catch (err) {
-          console.warn('Impossible de charger les segments:', err)
-          this.meeting.segments = []
-        }
-        
-        // Essayer de charger le nom du fichier audio
-        try {
-          const recordFileResponse = await apiService.getRecordFile(this.meetingId)
-          if (recordFileResponse) {
-            this.meeting.recordFileName = recordFileResponse
-          }
-        } catch (err) {
-          console.warn('Impossible de charger le fichier audio:', err)
         }
         
         this.isLoading = false
@@ -396,10 +390,9 @@ export default {
       
       try {
         // Essayer de récupérer le fichier audio depuis l'API
-        const audioUrl = this.meeting.audioFile || 
-                        (this.meeting.recordFileName ? 
-                          `${API_CONFIG.BASE_URL}/transcription/${this.meetingId}/obtain_record_file` : 
-                          null)
+        const audioUrl = this.meeting.audioFile ||
+                         this.meeting.recordFileUrl ||
+                         this.meeting.recordFileName
         
         if (audioUrl) {
           this.audioPlayer = new Audio(audioUrl)

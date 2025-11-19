@@ -1,5 +1,5 @@
 // Service API pour Transcript IA
-import { API_CONFIG, buildApiUrl, getDefaultHeaders, getAuthHeaders, ENDPOINTS } from '../config/api.js'
+import { API_CONFIG, getDefaultHeaders, getAuthHeaders, ENDPOINTS } from '../config/api.js'
 import { ERROR_MESSAGES } from '../config/constants.js'
 import { cacheService } from './cacheService.js'
 
@@ -116,29 +116,7 @@ class ApiService {
     return error
   }
 
-  // Méthodes pour l'authentification
-  async login(credentials) {
-    return this.request(ENDPOINTS.LOGIN, {
-      method: 'POST',
-      body: JSON.stringify(credentials)
-    })
-  }
-
-  async register(userData) {
-    return this.request(ENDPOINTS.REGISTER, {
-      method: 'POST',
-      body: JSON.stringify(userData)
-    })
-  }
-
-  async logout(token) {
-    return this.request('/auth/logout', {
-      method: 'POST',
-      headers: getAuthHeaders(token)
-    })
-  }
-
-  // Méthodes pour les réunions
+  // Méthodes alignées avec le Meeting-service backend
   async getAllMeetings(token) {
     const headers = token ? getAuthHeaders(token) : getDefaultHeaders()
     return this.request(ENDPOINTS.LIST_MEETINGS, {
@@ -157,65 +135,35 @@ class ApiService {
 
   async createMeeting(meetingData, token) {
     const headers = token ? getAuthHeaders(token) : getDefaultHeaders()
-    
-    // Transformer les données pour correspondre au format attendu par le backend
-    // Le backend attend: title, description, meetingDate/scheduledAt, previsualDuration/durationMinutes, status, participants[]
     const duration = meetingData.duration || meetingData.durationMinutes
-    
-    // Formater la date correctement (ISO string ou format attendu par le backend)
+
     let meetingDate = meetingData.date || meetingData.scheduledAt || meetingData.meetingDate
-    if (meetingDate && meetingDate instanceof Date) {
+    if (meetingDate instanceof Date) {
       meetingDate = meetingDate.toISOString()
-    } else if (meetingDate && typeof meetingDate === 'string') {
-      // Si c'est déjà une string, on la garde telle quelle
-      // Le backend accepte différents formats de date
     }
-    
-    // Le champ participants dans meetingData est le nombre de participants, pas la liste
-    // Le backend attend une liste vide [] ou une liste d'objets ParticipantRequest
-    const participantsList = Array.isArray(meetingData.participants) 
-      ? meetingData.participants 
+
+    const participantsList = Array.isArray(meetingData.participants)
+      ? meetingData.participants
       : []
-    
+
     const payload = {
       title: meetingData.name || meetingData.title,
       description: meetingData.description || '',
-      // Le backend accepte meetingDate ou scheduledAt grâce à @JsonAlias
-      meetingDate: meetingDate,
-      // Le backend accepte previsualDuration (String) ou durationMinutes (Integer)
+      meetingDate,
       durationMinutes: duration ? Number(duration) : undefined,
       previsualDuration: duration ? String(duration) : undefined,
       status: meetingData.status || 'scheduled',
       participants: participantsList,
-      // Ajouter la langue si fournie
       ...(meetingData.language && { language: meetingData.language })
     }
-    
-    // Log pour debug
+
     console.log('📤 Envoi de la requête POST à:', ENDPOINTS.CREATE_MEETING)
     console.log('📦 Payload:', payload)
-    
+
     return this.request(ENDPOINTS.CREATE_MEETING, {
       method: 'POST',
       headers,
       body: JSON.stringify(payload)
-    })
-  }
-
-  async updateMeeting(id, meetingData, token) {
-    const headers = token ? getAuthHeaders(token) : getDefaultHeaders()
-    return this.request(ENDPOINTS.GET_MEETING(id), {
-      method: 'PUT',
-      headers,
-      body: JSON.stringify(meetingData)
-    })
-  }
-
-  async deleteMeeting(id, token) {
-    const headers = token ? getAuthHeaders(token) : getDefaultHeaders()
-    return this.request(ENDPOINTS.GET_MEETING(id), {
-      method: 'DELETE',
-      headers
     })
   }
 
@@ -231,6 +179,14 @@ class ApiService {
     const headers = token ? getAuthHeaders(token) : getDefaultHeaders()
     return this.request(ENDPOINTS.END_MEETING(id), {
       method: 'PUT',
+      headers
+    })
+  }
+
+  async deleteMeeting(id, token) {
+    const headers = token ? getAuthHeaders(token) : getDefaultHeaders()
+    return this.request(ENDPOINTS.DELETE_MEETING(id), {
+      method: 'DELETE',
       headers
     })
   }
@@ -276,180 +232,146 @@ class ApiService {
     })
   }
 
-  // Méthodes pour la transcription
-  async createTranscription(meetingId, transcriptionData, token) {
+  async saveParticipant(participantData, token) {
     const headers = token ? getAuthHeaders(token) : getDefaultHeaders()
-    return this.request(ENDPOINTS.CREATE_TRANSCRIPTION(meetingId), {
+    return this.request(ENDPOINTS.SAVE_PARTICIPANT, {
       method: 'POST',
       headers,
-      body: JSON.stringify(transcriptionData || {})
+      body: JSON.stringify(participantData)
     })
   }
 
-  async sendSegment(meetingId, file, token) {
+  // ============= Transcription Methods =============
+
+  /**
+   * Démarre une transcription pour une réunion
+   * @param {number} meetingId - ID de la réunion
+   * @param {object} data - {idFat: number, recordFileName: string} (optionnel)
+   */
+  async startTranscription(meetingId, data = {}, token) {
+    const headers = token ? getAuthHeaders(token) : getDefaultHeaders()
+    console.log('🎙️ Démarrage transcription pour réunion:', meetingId)
+    return this.request(ENDPOINTS.START_TRANSCRIPTION(meetingId), {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(data)
+    })
+  }
+
+  /**
+   * Envoie un segment audio pour transcription
+   * @param {number} meetingId - ID de la réunion
+   * @param {File} audioFile - Fichier audio (mp3, wav, etc.)
+   */
+  async sendAudioSegment(meetingId, audioFile) {
     const formData = new FormData()
-    formData.append('file', file)
-
-    const headers = token ? { 'Authorization': `Bearer ${token}` } : {}
-    // Ne pas définir Content-Type pour FormData, le navigateur le fera automatiquement
-
+    formData.append('file', audioFile)
+    
+    console.log('📤 Envoi segment audio:', audioFile.name, 'Taille:', audioFile.size)
+    
     return this.request(ENDPOINTS.SEND_SEGMENT(meetingId), {
       method: 'POST',
-      headers,
       body: formData
+      // Pas de Content-Type header, le navigateur le définit automatiquement pour FormData
     })
   }
 
-  async saveSegmentToBdd(meetingId, segmentData, token) {
+  /**
+   * Sauvegarde des segments transcrits en BDD
+   * @param {number} meetingId - ID de la réunion
+   * @param {object|array} segments - Segment unique ou tableau de segments
+   */
+  async saveTranscriptionSegments(meetingId, segments, token) {
     const headers = token ? getAuthHeaders(token) : getDefaultHeaders()
-    return this.request(ENDPOINTS.SEGMENT_TO_BDD(meetingId), {
+    console.log('💾 Sauvegarde segments:', Array.isArray(segments) ? segments.length : 1, 'segment(s)')
+    return this.request(ENDPOINTS.SAVE_SEGMENTS(meetingId), {
       method: 'POST',
       headers,
-      body: JSON.stringify(segmentData)
+      body: JSON.stringify(segments)
     })
   }
 
-  async getSegments(meetingId, token) {
-    const headers = token ? getAuthHeaders(token) : getDefaultHeaders()
-    return this.request(ENDPOINTS.LIST_SEGMENTS(meetingId), {
+  /**
+   * Récupère tous les segments d'une réunion
+   * @param {number} meetingId - ID de la réunion
+   */
+  async getAllSegments(meetingId) {
+    console.log('📥 Récupération segments pour réunion:', meetingId)
+    return this.request(ENDPOINTS.GET_ALL_SEGMENTS(meetingId), {
       method: 'GET',
-      headers
+      headers: getDefaultHeaders()
     })
   }
 
-  async getSegment(meetingId, segmentId, token) {
-    const headers = token ? getAuthHeaders(token) : getDefaultHeaders()
-    return this.request(ENDPOINTS.SEGMENT_DETAILS(meetingId, segmentId), {
+  /**
+   * Récupère un segment spécifique
+   * @param {number} meetingId - ID de la réunion
+   * @param {number} segmentId - ID du segment
+   */
+  async getSegment(meetingId, segmentId) {
+    return this.request(ENDPOINTS.GET_SEGMENT(meetingId, segmentId), {
       method: 'GET',
-      headers
+      headers: getDefaultHeaders()
     })
   }
 
-  async updateSegment(meetingId, segmentId, segmentData, token) {
+  /**
+   * Met à jour le texte d'un segment
+   * @param {number} meetingId - ID de la réunion
+   * @param {number} segmentId - ID du segment
+   * @param {string} texte - Nouveau texte
+   */
+  async updateSegmentText(meetingId, segmentId, texte, token) {
     const headers = token ? getAuthHeaders(token) : getDefaultHeaders()
+    console.log('✏️ Mise à jour segment:', segmentId)
     return this.request(ENDPOINTS.UPDATE_SEGMENT(meetingId, segmentId), {
       method: 'PUT',
       headers,
-      body: JSON.stringify(segmentData)
+      body: JSON.stringify({ texte })
     })
   }
 
-  async getSegmentSpeakers(meetingId, segmentId, token) {
-    const headers = token ? getAuthHeaders(token) : getDefaultHeaders()
-    return this.request(ENDPOINTS.LIST_SEGMENT_SPEAKERS(meetingId, segmentId), {
-      method: 'GET',
-      headers
-    })
-  }
-
+  /**
+   * Met à jour le locuteur d'un segment
+   * @param {number} meetingId - ID de la réunion
+   * @param {number} segmentId - ID du segment
+   * @param {number} participantId - ID du participant/locuteur
+   */
   async updateSegmentSpeaker(meetingId, segmentId, participantId, token) {
     const headers = token ? getAuthHeaders(token) : getDefaultHeaders()
+    console.log('👤 Attribution locuteur:', participantId, 'au segment:', segmentId)
     return this.request(ENDPOINTS.UPDATE_SEGMENT_SPEAKER(meetingId, segmentId, participantId), {
       method: 'PUT',
       headers
     })
   }
 
-  async getRecordFile(meetingId, token) {
-    const headers = token ? getAuthHeaders(token) : getDefaultHeaders()
-    return this.request(ENDPOINTS.GET_RECORD_FILE(meetingId), {
-      method: 'GET',
-      headers
-    })
-  }
-
-  async saveRecordFile(meetingId, file, token) {
+  /**
+   * Sauvegarde le fichier audio complet
+   * @param {number} meetingId - ID de la réunion
+   * @param {File} audioFile - Fichier audio complet
+   */
+  async saveRecordFile(meetingId, audioFile) {
     const formData = new FormData()
-    formData.append('file', file)
-
-    const headers = token ? { 'Authorization': `Bearer ${token}` } : {}
-    // Ne pas définir Content-Type pour FormData
-
+    formData.append('file', audioFile)
+    
+    console.log('💾 Sauvegarde fichier audio complet:', audioFile.name)
+    
     return this.request(ENDPOINTS.SAVE_RECORD_FILE(meetingId), {
       method: 'POST',
-      headers,
       body: formData
     })
   }
 
-  async getSegmentStartTime(meetingId, segmentId, token) {
-    const headers = token ? getAuthHeaders(token) : getDefaultHeaders()
-    return this.request(ENDPOINTS.GET_SEGMENT_START(meetingId, segmentId), {
+  /**
+   * Récupère le nom du fichier audio
+   * @param {number} meetingId - ID de la réunion
+   */
+  async getRecordFileName(meetingId) {
+    return this.request(ENDPOINTS.GET_RECORD_FILE(meetingId), {
       method: 'GET',
-      headers
+      headers: getDefaultHeaders()
     })
-  }
-
-  async getSegmentEndTime(meetingId, segmentId, token) {
-    const headers = token ? getAuthHeaders(token) : getDefaultHeaders()
-    return this.request(ENDPOINTS.GET_SEGMENT_END(meetingId, segmentId), {
-      method: 'GET',
-      headers
-    })
-  }
-
-  // Méthodes pour les fichiers
-  async uploadFile(file, token, onProgress = null) {
-    const formData = new FormData()
-    formData.append('file', file)
-
-    const options = {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`
-        // Ne pas définir Content-Type pour FormData
-      },
-      body: formData
-    }
-
-    if (onProgress) {
-      options.onUploadProgress = onProgress
-    }
-
-    return this.request(ENDPOINTS.UPLOAD_FILE, options)
-  }
-
-  async downloadFile(fileId, token) {
-    return this.request(`/files/${fileId}/download`, {
-      method: 'GET',
-      headers: getAuthHeaders(token)
-    })
-  }
-
-  async deleteFile(fileId, token) {
-    return this.request(`/files/${fileId}`, {
-      method: 'DELETE',
-      headers: getAuthHeaders(token)
-    })
-  }
-
-  // Méthodes pour les utilisateurs
-  async getUsers(token) {
-    return this.request('/users', {
-      method: 'GET',
-      headers: getAuthHeaders(token)
-    })
-  }
-
-  async getUserById(id, token) {
-    return this.request(`/users/${id}`, {
-      method: 'GET',
-      headers: getAuthHeaders(token)
-    })
-  }
-
-  async updateUser(id, userData, token) {
-    return this.request(`/users/${id}`, {
-      method: 'PUT',
-      headers: getAuthHeaders(token),
-      body: JSON.stringify(userData)
-    })
-  }
-
-  // Méthode pour les WebSockets (connexion en temps réel)
-  connectWebSocket(token) {
-    const wsUrl = `${API_CONFIG.WS_URL}?token=${token}`
-    return new WebSocket(wsUrl)
   }
 }
 

@@ -61,27 +61,56 @@
             <div v-if="errors.date" class="error-message">{{ errors.date }}</div>
           </div>
 
-          <!-- Nombre de participants -->
-          <div class="form-group">
-            <label for="participants" class="form-label">
-              <svg class="label-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
-                <circle cx="9" cy="7" r="4"/>
-                <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
-                <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
-              </svg>
-              Nombre de participants *
-            </label>
-            <select
-              id="participants"
-              v-model="meetingData.participants"
-              class="form-select"
-              required
-            >
-              <option value="">Sélectionnez le nombre</option>
-              <option v-for="num in 50" :key="num" :value="num">{{ num }} participant{{ num > 1 ? 's' : '' }}</option>
-            </select>
-            <div v-if="errors.participants" class="error-message">{{ errors.participants }}</div>
+          <!-- Participants (optionnel) -->
+          <div class="form-group form-group-full">
+            <div class="participants-header">
+              <label class="form-label">
+                <svg class="label-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                  <circle cx="9" cy="7" r="4"/>
+                  <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                  <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                </svg>
+                Participants (optionnel)
+              </label>
+              <button type="button" @click="addParticipantRow" class="btn-add-participant">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="12" cy="12" r="10"/>
+                  <path d="M12 8v8"/>
+                  <path d="M8 12h8"/>
+                </svg>
+                Ajouter un participant
+              </button>
+            </div>
+            <div v-if="participantsList.length > 0" class="participants-list-setup">
+              <div v-for="(participant, index) in participantsList" :key="index" class="participant-row">
+                <input
+                  v-model="participant.firstname"
+                  type="text"
+                  class="form-input-small"
+                  placeholder="Prénom"
+                />
+                <input
+                  v-model="participant.lastname"
+                  type="text"
+                  class="form-input-small"
+                  placeholder="Nom"
+                />
+                <input
+                  v-model="participant.email"
+                  type="email"
+                  class="form-input-small"
+                  placeholder="email@example.com"
+                />
+                <button type="button" @click="removeParticipantRow(index)" class="btn-remove-participant">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="18" y1="6" x2="6" y2="18"/>
+                    <line x1="6" y1="6" x2="18" y2="18"/>
+                  </svg>
+                </button>
+              </div>
+            </div>
+            <p class="form-hint">Vous pourrez ajouter des participants plus tard</p>
           </div>
 
           <!-- Durée prévue -->
@@ -283,13 +312,13 @@ export default {
       meetingData: {
         name: '',
         date: '',
-        participants: '',
         duration: '',
         language: 'fr',
         description: '',
         autoStart: true,
         sendReminders: false
       },
+      participantsList: [],
       durationType: 'preset',
       customHours: 0,
       customMinutes: 0,
@@ -332,10 +361,6 @@ export default {
         }
       }
       
-      if (!this.meetingData.participants) {
-        this.errors.participants = 'Le nombre de participants est requis'
-      }
-      
       if (this.durationType === 'preset' && !this.meetingData.duration) {
         this.errors.duration = 'La durée prévue est requise'
       } else if (this.durationType === 'custom') {
@@ -368,6 +393,30 @@ export default {
       this.meetingData.duration = totalMinutes.toString()
     },
     
+    addParticipantRow() {
+      this.participantsList.push({
+        firstname: '',
+        lastname: '',
+        email: ''
+      })
+    },
+    
+    removeParticipantRow(index) {
+      this.participantsList.splice(index, 1)
+    },
+    
+    async clearMeetingsCache() {
+      try {
+        // Vider le cache pour la route /api/meeting/all
+        const { cacheService } = await import('../services/cacheService.js')
+        const cacheKey = 'GET:http://localhost:8081/api/meeting/all'
+        await cacheService.delete(cacheKey)
+        console.log('🗑️ Cache invalidé pour:', cacheKey)
+      } catch (error) {
+        console.warn('Erreur lors de l\'invalidation du cache:', error)
+      }
+    },
+    
     async createMeeting() {
       if (!this.validateForm()) {
         return
@@ -378,11 +427,20 @@ export default {
         ? (this.customHours * 60) + this.customMinutes
         : Number(this.meetingData.duration)
 
+      // Filtrer les participants valides (avec au moins un email)
+      const validParticipants = this.participantsList
+        .filter(p => p.email && p.email.trim())
+        .map(p => ({
+          firstname: p.firstname.trim() || undefined,
+          lastname: p.lastname.trim() || undefined,
+          email: p.email.trim()
+        }))
+      
       const payload = {
         name: this.meetingData.name.trim(),
         date: new Date(this.meetingData.date).toISOString(),
         duration: Number.isFinite(totalMinutes) ? Number(totalMinutes) : undefined,
-        participants: [], // Le backend attend une liste vide ou une liste d'objets ParticipantRequest
+        participants: validParticipants, // Liste de ParticipantRequest
         language: this.meetingData.language || 'fr',
         description: this.meetingData.description?.trim?.() || '',
         status: 'scheduled', // Statut par défaut
@@ -397,16 +455,26 @@ export default {
       this.isLoading = true
       
       try {
+        console.log('📤 Création de la réunion avec payload:', payload)
         const response = await apiService.createMeeting(payload)
+        console.log('✅ Réponse reçue du backend:', response)
         
         // Le backend retourne directement l'objet MeetingResponse
         // ou peut-être dans response.data selon le format
         const meeting = response?.data || response
+        console.log('📋 Objet meeting extrait:', meeting)
         
         if (!meeting || !meeting.id) {
+          console.error('❌ Pas d\'ID dans la réponse:', meeting)
           throw new Error('Réponse inattendue du serveur.')
         }
 
+        console.log('🎉 Réunion créée avec succès, ID:', meeting.id)
+        
+        // Invalider le cache pour forcer le rechargement de la liste
+        await this.clearMeetingsCache()
+        
+        alert(`✅ Réunion "${meeting.title}" créée avec succès !`)
         this.$emit('meeting-created', meeting)
       } catch (error) {
         console.error('Erreur lors de la création:', error)
@@ -760,6 +828,100 @@ export default {
   stroke-width: 2;
   stroke-linecap: round;
   stroke-linejoin: round;
+}
+
+/* Styles pour les participants */
+.form-group-full {
+  grid-column: 1 / -1;
+}
+
+.participants-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.btn-add-participant {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  background: #10b981;
+  color: white;
+  border: none;
+  border-radius: 0.5rem;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.btn-add-participant:hover {
+  background: #059669;
+  transform: translateY(-1px);
+}
+
+.btn-add-participant svg {
+  width: 16px;
+  height: 16px;
+}
+
+.participants-list-setup {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.participant-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1.5fr auto;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.form-input-small {
+  padding: 0.625rem 0.875rem;
+  border: 2px solid #e5e7eb;
+  border-radius: 0.5rem;
+  font-size: 0.9rem;
+  transition: all 0.3s ease;
+}
+
+.form-input-small:focus {
+  outline: none;
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3px rgb(99 102 241 / 0.1);
+}
+
+.btn-remove-participant {
+  padding: 0.5rem;
+  background: #ef4444;
+  color: white;
+  border: none;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-remove-participant:hover {
+  background: #dc2626;
+  transform: scale(1.05);
+}
+
+.btn-remove-participant svg {
+  width: 16px;
+  height: 16px;
+}
+
+.form-hint {
+  font-size: 0.85rem;
+  color: #6b7280;
+  font-style: italic;
 }
 
 .icon-spin {

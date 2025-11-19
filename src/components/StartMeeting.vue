@@ -84,7 +84,7 @@
 
           <div class="meeting-actions">
             <button 
-              @click="$emit('view-meeting', meeting.id)"
+              @click="$emit('view-meeting', meeting)"
               class="btn btn-secondary"
               :disabled="startingMeetingId !== null"
             >
@@ -173,11 +173,23 @@ export default {
     }
   },
   async mounted() {
+    // Vider le cache avant de charger pour avoir les données fraîches
+    await this.clearCache()
     await this.loadMeetings()
   },
   methods: {
-    viewMeeting(meetingId) {
-      this.$emit('view-meeting', meetingId);
+    async clearCache() {
+      try {
+        const { cacheService } = await import('../services/cacheService.js')
+        const cacheKey = 'GET:http://localhost:8081/api/meeting/all'
+        await cacheService.delete(cacheKey)
+        console.log('🗑️ Cache vidé avant chargement des réunions')
+      } catch (error) {
+        console.warn('Erreur lors du vidage du cache:', error)
+      }
+    },
+    viewMeeting(meeting) {
+      this.$emit('view-meeting', meeting);
     },
     async loadMeetings() {
       this.isLoading = true
@@ -187,15 +199,21 @@ export default {
         const response = await apiService.getAllMeetings()
         
         // Gérer différents formats de réponse
+        let allMeetings = []
         if (Array.isArray(response)) {
-          this.meetings = response
+          allMeetings = response
         } else if (response?.data && Array.isArray(response.data)) {
-          this.meetings = response.data
+          allMeetings = response.data
         } else if (response?.meetings && Array.isArray(response.meetings)) {
-          this.meetings = response.meetings
+          allMeetings = response.meetings
         } else {
-          this.meetings = []
+          allMeetings = []
         }
+
+        // Filtrer pour afficher UNIQUEMENT les réunions avec le statut "scheduled"
+        this.meetings = allMeetings.filter(meeting => meeting.status === 'scheduled')
+
+        console.log(`📋 ${allMeetings.length} réunions totales, ${this.meetings.length} planifiées affichées`)
 
         // Trier par date (plus récentes en premier)
         this.meetings.sort((a, b) => {
@@ -210,6 +228,7 @@ export default {
     },
 
     async refreshMeetings() {
+      await this.clearCache()
       await this.loadMeetings()
     },
 
@@ -225,14 +244,18 @@ export default {
       try {
         const response = await apiService.startMeeting(meeting.id)
         
+        // Afficher un message de succès
+        alert('✅ Réunion démarrée avec succès !')
+        
+        // Recharger la liste des réunions pour voir le statut mis à jour
+        await this.clearCache()
+        await this.loadMeetings()
+        
         // Émettre un événement pour notifier le parent
         this.$emit('meeting-started', {
           meeting,
           response
         })
-
-        // Afficher un message de succès
-        alert('✅ Réunion démarrée avec succès !')
         
       } catch (error) {
         console.error('Erreur lors du démarrage:', error)
