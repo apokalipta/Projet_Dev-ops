@@ -132,6 +132,12 @@ public class MeetingService {
     }
 
     @Transactional
+    public ParticipantResponse saveParticipant(ParticipantRequest request) {
+        Participant participant = resolveParticipant(request);
+        return toParticipantResponse(participant);
+    }
+
+    @Transactional
     public void removeParticipant(Long meetingId, Long participantId) {
         Meeting meeting = Optional.ofNullable(meetingRepository.findById(meetingId))
                 .orElseThrow(() -> notFound(RESOURCE_MEETING, meetingId));

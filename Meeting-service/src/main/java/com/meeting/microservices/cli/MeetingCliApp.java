@@ -60,6 +60,7 @@ public final class MeetingCliApp {
                     case "8" -> startMeeting(scanner);
                     case "9" -> endMeeting(scanner);
                     case "10" -> listRegisteredParticipants();
+                    case "11" -> registerParticipantInDirectory(scanner);
                     case "0" -> running = false;
                     default -> System.out.println("Option inconnue, merci de réessayer.\n");
                 }
@@ -77,8 +78,9 @@ public final class MeetingCliApp {
         System.out.println("6. Retirer un participant d'une réunion");
         System.out.println("7. Rechercher des réunions par titre");
         System.out.println("8. Démarrer une réunion");
-    System.out.println("9. Terminer une réunion");
+        System.out.println("9. Terminer une réunion");
         System.out.println("10. Lister les participants enregistrés");
+        System.out.println("11. Enregistrer un participant sans réunion");
         System.out.println("0. Quitter");
     }
 
@@ -200,6 +202,38 @@ public final class MeetingCliApp {
             return;
         }
         printParticipantDirectory(participants);
+    }
+
+    private static void registerParticipantInDirectory(Scanner scanner) {
+        System.out.print("ID du participant à mettre à jour (laisser vide pour créer) : ");
+        String idInput = scanner.nextLine().trim();
+        if (idInput.isEmpty()) {
+            String payload = promptParticipantPayload(scanner, "Prénom et nom vides, participant ignoré.");
+            if (payload == null) {
+                System.out.println("Participant non enregistré.");
+                return;
+            }
+            sendParticipantPost("", payload);
+            return;
+        }
+
+        Long participantId;
+        try {
+            participantId = Long.parseLong(idInput);
+        } catch (NumberFormatException e) {
+            System.out.println("Identifiant invalide, opération annulée.");
+            return;
+        }
+
+        System.out.print("Nouvel email (laisser vide pour annuler) : ");
+        String email = scanner.nextLine().trim();
+        if (email.isEmpty()) {
+            System.out.println("Email vide, mise à jour annulée.");
+            return;
+        }
+
+        String payload = "{\"id\":" + participantId + ",\"email\":\"" + escapeJson(email) + "\"}";
+        sendParticipantPost("", payload);
     }
 
     private static String chooseParticipantPayload(Scanner scanner) {
@@ -593,6 +627,16 @@ public final class MeetingCliApp {
     private static void sendPost(String path, String jsonPayload) {
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(BASE_URL + path))
+                .header(HEADER_CONTENT_TYPE, MIME_JSON)
+                .header(HEADER_ACCEPT, MIME_JSON)
+                .POST(HttpRequest.BodyPublishers.ofString(jsonPayload, StandardCharsets.UTF_8))
+                .build();
+        sendRequest(request);
+    }
+
+    private static void sendParticipantPost(String path, String jsonPayload) {
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(PARTICIPANT_URL + path))
                 .header(HEADER_CONTENT_TYPE, MIME_JSON)
                 .header(HEADER_ACCEPT, MIME_JSON)
                 .POST(HttpRequest.BodyPublishers.ofString(jsonPayload, StandardCharsets.UTF_8))

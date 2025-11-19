@@ -6,7 +6,7 @@ Service Meetings du projet Projet_Dev-ops. Il gere la planification des reunions
 
 - Creation de reunion avec titre, description, date, langue, duree previsionnelle et participants optionnels.
 - Consultation detaillee d'une reunion et liste globale des reunions.
-- Gestion des participants : ajout, suppression, liste triee (verrouillee une fois la reunion terminee).
+- Gestion des participants : ajout, suppression, liste triee (verrouillee une fois la reunion terminee) et enregistrement direct dans l'annuaire.
 - Recherche par titre.
 - Demarrage et cloture d'une reunion via des endpoints dedies (`scheduled` -> `in_progress` -> `completed`).
 
@@ -108,7 +108,7 @@ ou
 .\gradlew :Meeting-service:quarkusDev  
 ```
 
-Par defaut, l'API ecoute sur `http://localhost:8080`.
+Par defaut, l'API ecoute sur `http://localhost:8081`.
 
 ### Build production
 
@@ -128,6 +128,7 @@ Le jar executable se trouve sous `build/quarkus-app/`.
 | GET | `/api/meeting/{id}` | Detail d'une reunion |
 | GET | `/api/meeting/{id}/participant/all` | Lister les participants |
 | GET | `/api/participant/all` | Lister tous les participants enregistrés |
+| POST | `/api/participant` | Enregistrer ou mettre à jour un participant sans réunion |
 | POST | `/api/meeting/{id}/participant` | Ajouter un participant (refusé si la réunion est `completed`) |
 | DELETE | `/api/meeting/{id}/participant/{participantId}` | Retirer un participant (refusé si la réunion est `completed`) |
 | GET | `/api/meeting/search/byTitle` | Rechercher par titre (`title` en parametre) |
@@ -154,12 +155,24 @@ Fonctionnalites : creation, consultation, recherche, gestion des participants, d
 
 - `1`: creation d'une reunion complete (participants existants ou nouveaux).
 - `2`: liste de toutes les reunions via `/api/meeting/all`.
-- `5` et `10`: reutilisation du repertoire des participants, incluant ceux sans reunion (`/api/participant/all`).
+- `5`, `10` et `11`: reutilisation et alimentation du repertoire des participants (`/api/participant/all` et `/api/participant`).
 - `7`: recherche par titre avec mot-cle.
 - `8` et `9`: controle du cycle de vie (demarrage, cloture).
+- `11`: ajout ou mise à jour d'un participant directement dans l'annuaire.
 - `0`: sortie de l'application.
 
 Lance d'abord Quarkus (`../gradlew quarkusDev`), sinon les appels HttpClient echoueront.
+
+### Executer le client CLI uniquement
+
+Lorsque tu veux tester l'application console sans passer par Intellij, assure-toi d'abord que le service Quarkus tourne (`../gradlew quarkusDev`). Ensuite, dans un second terminal place-toi dans `Meeting-service` et lance :
+
+```powershell
+../gradlew :Meeting-service:classes
+java -cp build/classes/java/main com.meeting.microservices.cli.MeetingCliApp
+```
+
+La premiere commande compile les classes necessaires (elle peut etre relancee apres chaque modification). La seconde commande demarre le menu interactif directement via la JVM Windows.
 
 ## Jeux de donnees d'exemple
 
@@ -189,38 +202,43 @@ Lancer Quarkus en dev (`../gradlew quarkusDev`) puis utiliser `curl` ou `Invoke-
 ```powershell
 # Creer une reunion (les alias `meetingDate` et `previsualDuration` restent acceptes)
 $body = '{"title":"Sprint planning","description":"Preparation sprint","scheduledAt":"2025-11-08T10:00:00","durationMinutes":45,"status":"scheduled","participants":[{"fullName":"Alice Durand","email":"alice@example.com"}]}'
-Invoke-RestMethod -Method Post -Uri "http://localhost:8080/api/meeting" `
+Invoke-RestMethod -Method Post -Uri "http://localhost:8081/api/meeting" `
   -ContentType "application/json" -Body $body
 
 # Lister toutes les reunions
-Invoke-RestMethod -Method Get -Uri "http://localhost:8080/api/meeting/all"
+Invoke-RestMethod -Method Get -Uri "http://localhost:8081/api/meeting/all"
 
 # Detail d'une reunion
-Invoke-RestMethod -Method Get -Uri "http://localhost:8080/api/meeting/1"
+Invoke-RestMethod -Method Get -Uri "http://localhost:8081/api/meeting/{id_reunion}"
 
 # Participants de la reunion
-Invoke-RestMethod -Method Get -Uri "http://localhost:8080/api/meeting/1/participant/all"
+Invoke-RestMethod -Method Get -Uri "http://localhost:8081/api/meeting/{id_reunion}/participant/all"
 
 # Repertoire de tous les participants
-Invoke-RestMethod -Method Get -Uri "http://localhost:8080/api/participant/all"
+Invoke-RestMethod -Method Get -Uri "http://localhost:8081/api/participant/all"
 
-# Ajouter un participant
+# Ajouter un participant dans l'annuaire
+$newParticipant = '{"firstname":"Claire","lastname":"Dupont","email":"claire@example.com"}'
+Invoke-RestMethod -Method Post -Uri "http://localhost:8081/api/participant" `
+  -ContentType "application/json" -Body $newParticipant
+
+# Ajouter un participant à une réunion
 $participant = '{"firstname":"Bob","lastname":"Martin"}'
-Invoke-RestMethod -Method Post -Uri "http://localhost:8080/api/meeting/1/participant" `
+Invoke-RestMethod -Method Post -Uri "http://localhost:8081/api/meeting/{id_reunion}/participant" `
   -ContentType "application/json" -Body $participant
 
 # Supprimer un participant (id 2)
-Invoke-RestMethod -Method Delete -Uri "http://localhost:8080/api/meeting/1/participant/2"
+Invoke-RestMethod -Method Delete -Uri "http://localhost:8081/api/meeting/{id_reunion}/participant/{id_participant}"
 # Les opérations d'ajout/retrait renvoient HTTP 409 si la réunion est déjà terminée
 
 # Recherche par titre
-Invoke-RestMethod -Method Get -Uri "http://localhost:8080/api/meeting/search/byTitle?title=planning"
+Invoke-RestMethod -Method Get -Uri "http://localhost:8081/api/meeting/search/byTitle?title=planning"
 
 # Demarrer la reunion
-Invoke-RestMethod -Method Put -Uri "http://localhost:8080/api/meeting/1/start"
+Invoke-RestMethod -Method Put -Uri "http://localhost:8081/api/meeting/{id_reunion}/start"
 
 # Clore la reunion
-Invoke-RestMethod -Method Put -Uri "http://localhost:8080/api/meeting/1/end"
+Invoke-RestMethod -Method Put -Uri "http://localhost:8081/api/meeting/{id_reunion}/end"
 ```
 
 Chaque appel renvoie un JSON representant l'etat courant de la reunion; ajuster les identifiants selon les donnees retournees par l'API.
@@ -243,10 +261,22 @@ Activez le rapport complet (`../gradlew check`) pour executer les verifications 
 - `quarkus.hibernate-orm.database.generation=update` met a jour le schema automatiquement en dev; passez-le a `validate` en production pour eviter toute modification involontaire.
 
 
-## Conteneurisation (a faire)
+## Conteneurisation
 
-- Ajouter un Dockerfile Quarkus (mode JVM).
-- Integrer le service au `docker-compose.yml` global avec MySQL, RabbitMQ et les autres microservices.
+- Dockerfile JVM Quarkus disponible sous `Meeting-service/Dockerfile`.
+- Compose racine `docker-compose.yml` lance MySQL (port hôte 3307) + Meeting-service (port 8081).
+
+## Rapport de tests docker-compose (19/11/2025)
+
+1. Démarrage : `docker compose up --build -d`  
+   - Build Gradle OK, conteneur `meeting-db` sain, `meeting-service` actif sur `http://localhost:8081`.
+2. Vérification liste réunions : `curl http://localhost:8081/api/meeting/all` → `200 OK`, réponse `[]`.
+3. Création réunion : `curl -X POST http://localhost:8081/api/meeting ...` avec payload `Demo Compose` → `201 Created`, réponse incluant `id=1` et participant `Alice Dupont`.
+4. Lecture après création : `curl http://localhost:8081/api/meeting/all` → `200 OK`, retour de la réunion créée.
+5. Participants : `curl http://localhost:8081/api/participant/all` → `200 OK`, contient `Alice Dupont`.
+6. Arrêt : `docker compose down` pour nettoyer réseau et volumes temporaires.
+
+Les commandes curl sont exécutées avec `Content-Type: application/json`. Aucun échec réseau ni erreur HTTP n’a été observé pendant la campagne.
 
 ## Troubleshooting
 

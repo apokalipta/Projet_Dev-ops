@@ -14,5 +14,4 @@ rootProject.name = 'Meeting\'s Transcription'
 
 include('App-UI-service')
 include('Meeting-service')
-include('Transcription-service')
 include('Web-UI-service')
