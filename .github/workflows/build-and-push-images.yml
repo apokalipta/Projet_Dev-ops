@@ -36,10 +36,10 @@ jobs:
     strategy:
       matrix:
         service:
-          - name: ${{ env.TRANSCRIPTION_SERVICE_NAME }}
+          - name: transcription-service
             dockerfile: Transcription-service/Dockerfile
             context: .
-          - name: ${{ env.AI_SERVICE_NAME }}
+          - name: ai-service
             dockerfile: Dockerfile
             context: ai-service
 
