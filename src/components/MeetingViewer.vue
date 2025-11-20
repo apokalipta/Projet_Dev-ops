@@ -67,6 +67,25 @@
           </svg>
           Gérer les participants
         </button>
+        <button 
+          @click="triggerFileUpload" 
+          class="btn btn-secondary"
+          :disabled="isUploadingAudio || isLoading"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="17 8 12 3 7 8"/>
+            <line x1="12" y1="3" x2="12" y2="15"/>
+          </svg>
+          {{ isUploadingAudio ? 'Envoi en cours...' : 'Envoyer un fichier audio' }}
+        </button>
+        <input 
+          ref="fileInput" 
+          type="file" 
+          accept="audio/*,.mp3,.wav,.m4a,.aac,.ogg" 
+          @change="handleFileSelect" 
+          style="display: none"
+        />
         <div v-if="meeting.status === 'completed'" class="completed-message">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M20 6L9 17l-5-5"/>
@@ -242,6 +261,18 @@
           Retour
         </button>
         <button 
+          @click="triggerFileUpload" 
+          class="btn btn-primary"
+          :disabled="isUploadingAudio || isLoading"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 1em; height: 1em; margin-right: 0.5em; vertical-align: middle;">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="17 8 12 3 7 8"/>
+            <line x1="12" y1="3" x2="12" y2="15"/>
+          </svg>
+          {{ isUploadingAudio ? 'Envoi en cours...' : 'Envoyer un fichier audio' }}
+        </button>
+        <button 
           v-if="meeting.segments && meeting.segments.length > 0"
           @click="exportTranscript" 
           class="btn btn-primary"
@@ -289,7 +320,8 @@ export default {
       isStarting: false,
       isEnding: false,
       selectedSegmentForEdit: null,
-      isAssigningSpeaker: false
+      isAssigningSpeaker: false,
+      isUploadingAudio: false
     }
   },
 
@@ -386,6 +418,13 @@ export default {
         
         console.log('📋 Meeting final:', this.meeting)
         console.log('📊 Statut final du meeting:', this.meeting.status)
+        console.log('🔍 Condition bouton upload:', {
+          meetingExists: !!this.meeting,
+          status: this.meeting.status,
+          isNotCompleted: this.meeting.status !== 'completed',
+          isLoading: this.isLoading,
+          shouldShowButton: this.meeting && this.meeting.status !== 'completed' && !this.isLoading
+        })
         
         // Charger les participants
         try {
@@ -630,6 +669,71 @@ export default {
         return `${hours}h${mins > 0 ? ` ${mins}min` : ''}`
       }
       return `${mins} min`
+    },
+
+    triggerFileUpload() {
+      // Debug: vérifier le statut
+      console.log('🔍 triggerFileUpload appelé', {
+        meetingId: this.meetingId,
+        meetingStatus: this.meeting?.status,
+        isLoading: this.isLoading,
+        hasFileInput: !!this.$refs.fileInput
+      })
+      
+      // Déclencher le sélecteur de fichier
+      if (this.$refs.fileInput) {
+        this.$refs.fileInput.click()
+      } else {
+        console.error('❌ fileInput ref non trouvé')
+        alert('Erreur: impossible d\'accéder au sélecteur de fichier')
+      }
+    },
+
+    async handleFileSelect(event) {
+      const file = event.target.files?.[0]
+      if (!file) return
+
+      // Vérifier que c'est un fichier audio
+      if (!file.type.startsWith('audio/') && !file.name.match(/\.(mp3|wav|m4a|aac|ogg)$/i)) {
+        alert('Veuillez sélectionner un fichier audio (MP3, WAV, M4A, AAC, OGG)')
+        return
+      }
+
+      // Vérifier la taille du fichier (par exemple, max 100MB)
+      const maxSize = 100 * 1024 * 1024 // 100MB
+      if (file.size > maxSize) {
+        alert(`Le fichier est trop volumineux. Taille maximale : ${(maxSize / 1024 / 1024).toFixed(0)}MB`)
+        return
+      }
+
+      this.isUploadingAudio = true
+      
+      try {
+        console.log('📤 Envoi fichier audio manuel:', {
+          fileName: file.name,
+          fileSize: `${(file.size / 1024 / 1024).toFixed(2)} MB`,
+          fileType: file.type,
+          meetingId: this.meetingId
+        })
+
+        await apiService.sendAudioSegment(this.meetingId, file)
+        
+        console.log('✅ Fichier audio envoyé avec succès')
+        alert(`✅ Fichier "${file.name}" envoyé avec succès pour transcription`)
+        
+        // Rafraîchir les données de la réunion pour voir les nouveaux segments
+        await this.fetchMeetingData()
+        
+        // Réinitialiser l'input file
+        if (this.$refs.fileInput) {
+          this.$refs.fileInput.value = ''
+        }
+      } catch (error) {
+        console.error('❌ Erreur lors de l\'envoi du fichier audio:', error)
+        alert(`❌ Erreur lors de l'envoi du fichier : ${error?.message || 'Erreur inconnue'}`)
+      } finally {
+        this.isUploadingAudio = false
+      }
     },
 
     exportTranscript() {
