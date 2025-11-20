@@ -117,8 +117,39 @@
         <p>Aucun fichier audio disponible pour cette réunion</p>
       </div>
 
-      <!-- Transcription avec recherche et filtres -->
-      <div class="transcript-container">
+      <!-- Onglets Transcription / Synthèse -->
+      <div class="tabs-container">
+        <button 
+          @click="activeTab = 'transcription'" 
+          class="tab-button"
+          :class="{ active: activeTab === 'transcription' }"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+            <polyline points="14,2 14,8 20,8"/>
+            <line x1="16" y1="13" x2="8" y2="13"/>
+            <line x1="16" y1="17" x2="8" y2="17"/>
+          </svg>
+          Transcription
+        </button>
+        <button 
+          @click="activeTab = 'synthesis'" 
+          class="tab-button"
+          :class="{ active: activeTab === 'synthesis' }"
+          v-if="meeting.segments && meeting.segments.length > 0"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+            <polyline points="14,2 14,8 20,8"/>
+            <line x1="12" y1="18" x2="12" y2="12"/>
+            <line x1="9" y1="15" x2="15" y2="15"/>
+          </svg>
+          Synthèse
+        </button>
+      </div>
+
+      <!-- Vue Transcription -->
+      <div v-if="activeTab === 'transcription'" class="transcript-container">
         <h3>Transcription</h3>
         
         <!-- Barre de recherche et filtres -->
@@ -255,6 +286,172 @@
         </div>
       </div>
 
+      <!-- Vue Synthèse -->
+      <div v-if="activeTab === 'synthesis'" class="synthesis-container">
+        <h3>Synthèse de la réunion</h3>
+        
+        <!-- Statistiques -->
+        <div class="synthesis-stats">
+          <div class="stat-card">
+            <div class="stat-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"/>
+                <polyline points="12,6 12,12 16,14"/>
+              </svg>
+            </div>
+            <div class="stat-content">
+              <div class="stat-label">Durée totale</div>
+              <div class="stat-value">{{ totalDuration }}</div>
+            </div>
+          </div>
+          
+          <div class="stat-card">
+            <div class="stat-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                <circle cx="9" cy="7" r="4"/>
+                <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+              </svg>
+            </div>
+            <div class="stat-content">
+              <div class="stat-label">Participants</div>
+              <div class="stat-value">{{ meeting.participants?.length || 0 }}</div>
+            </div>
+          </div>
+          
+          <div class="stat-card">
+            <div class="stat-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                <polyline points="14,2 14,8 20,8"/>
+                <line x1="16" y1="13" x2="8" y2="13"/>
+                <line x1="16" y1="17" x2="8" y2="17"/>
+              </svg>
+            </div>
+            <div class="stat-content">
+              <div class="stat-label">Segments</div>
+              <div class="stat-value">{{ meeting.segments?.length || 0 }}</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Temps de parole par locuteur -->
+        <div class="speaking-time-section">
+          <h4>Temps de parole par locuteur</h4>
+          <div class="speaking-time-list">
+            <div 
+              v-for="(time, speakerId) in speakingTimeBySpeaker" 
+              :key="speakerId"
+              class="speaking-time-item"
+            >
+              <div class="speaker-info">
+                <span class="speaker-name">{{ getSpeakerName(speakerId) || 'Non attribué' }}</span>
+                <span class="speaking-percentage">{{ getSpeakingPercentage(time) }}%</span>
+              </div>
+              <div class="speaking-time-bar">
+                <div 
+                  class="speaking-time-fill" 
+                  :style="{ width: getSpeakingPercentage(time) + '%' }"
+                ></div>
+              </div>
+              <div class="speaking-time-value">{{ formatDurationFromSeconds(time) }}</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Résumé -->
+        <div class="summary-section">
+          <h4>Résumé</h4>
+          <div class="summary-content">
+            <p v-if="generatedSummary">{{ generatedSummary }}</p>
+            <p v-else class="no-summary">Aucun résumé disponible. Le résumé sera généré automatiquement à partir des segments.</p>
+          </div>
+        </div>
+
+        <!-- Segments avec actions d'édition -->
+        <div class="editable-segments-section">
+          <h4>Segments (édition)</h4>
+          <div class="editable-segments-list">
+            <div 
+              v-for="(segment, index) in meeting.segments" 
+              :key="segment.id || index"
+              class="editable-segment"
+              :class="{ 'editing': editingSegmentId === segment.id }"
+            >
+              <div class="segment-actions">
+                <button 
+                  @click="editSegment(segment)" 
+                  class="action-btn edit-btn"
+                  :title="editingSegmentId === segment.id ? 'Annuler' : 'Corriger le texte'"
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                  </svg>
+                </button>
+                <button 
+                  @click="showSpeakerSelector(segment)" 
+                  class="action-btn assign-btn"
+                  title="Réassigner le locuteur"
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                    <circle cx="9" cy="7" r="4"/>
+                    <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                    <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                  </svg>
+                </button>
+                <button 
+                  @click="mergeWithNext(segment, index)" 
+                  class="action-btn merge-btn"
+                  :disabled="index === meeting.segments.length - 1"
+                  title="Fusionner avec le segment suivant"
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/>
+                  </svg>
+                </button>
+                <button 
+                  @click="splitSegment(segment)" 
+                  class="action-btn split-btn"
+                  title="Scinder le segment"
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="12" y1="3" x2="12" y2="21"/>
+                    <line x1="3" y1="12" x2="21" y2="12"/>
+                  </svg>
+                </button>
+              </div>
+              
+              <div v-if="editingSegmentId === segment.id" class="segment-editor">
+                <textarea 
+                  v-model="editingSegmentText" 
+                  class="segment-text-input"
+                  rows="3"
+                ></textarea>
+                <div class="editor-actions">
+                  <button @click="saveSegmentEdit(segment)" class="btn btn-primary btn-sm">Enregistrer</button>
+                  <button @click="cancelSegmentEdit" class="btn btn-secondary btn-sm">Annuler</button>
+                </div>
+              </div>
+              <div v-else class="segment-content">
+                <div class="segment-header-info">
+                  <span class="segment-speaker-badge">
+                    {{ getSpeakerName(getSegmentSpeakerId(segment)) || 'Non attribué' }}
+                  </span>
+                  <span class="segment-time-info">
+                    {{ formatTime(segment.timeDepart || segment.startTime) }} - 
+                    {{ formatTime(segment.timeFin || segment.endTime || (segment.timeDepart || segment.startTime) + 5) }}
+                  </span>
+                </div>
+                <div class="segment-text-display">{{ segment.texte || segment.text }}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- Boutons d'action -->
       <div class="action-buttons">
         <button @click="$emit('back')" class="btn btn-secondary">
@@ -272,6 +469,27 @@
           </svg>
           {{ isUploadingAudio ? 'Envoi en cours...' : 'Envoyer un fichier audio' }}
         </button>
+        <button 
+          @click="triggerSegmentsFileLoad" 
+          class="btn btn-secondary"
+          :disabled="isLoading"
+          title="Charger des segments depuis un fichier JSON (test)"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 1em; height: 1em; margin-right: 0.5em; vertical-align: middle;">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+            <polyline points="14,2 14,8 20,8"/>
+            <line x1="16" y1="13" x2="8" y2="13"/>
+            <line x1="16" y1="17" x2="8" y2="17"/>
+          </svg>
+          Charger segments (test)
+        </button>
+        <input 
+          ref="segmentsFileInput" 
+          type="file" 
+          accept=".json,application/json" 
+          @change="handleSegmentsFileLoad" 
+          style="display: none"
+        />
         <button 
           v-if="meeting.segments && meeting.segments.length > 0"
           @click="exportTranscript" 
@@ -321,8 +539,17 @@ export default {
       isEnding: false,
       selectedSegmentForEdit: null,
       isAssigningSpeaker: false,
-      isUploadingAudio: false
+      isUploadingAudio: false,
+      activeTab: 'transcription',
+      editingSegmentId: null,
+      editingSegmentText: '',
+      generatedSummary: ''
     }
+  },
+
+  created() {
+    // Générer des segments de test par défaut si aucun segment n'existe
+    this.loadTestSegmentsIfNeeded()
   },
 
   computed: {
@@ -356,6 +583,43 @@ export default {
       }
       
       return filtered
+    },
+
+    totalDuration() {
+      if (!this.meeting.segments || this.meeting.segments.length === 0) {
+        return '00:00'
+      }
+      
+      const segments = this.meeting.segments
+      const firstSegment = segments[0]
+      const lastSegment = segments[segments.length - 1]
+      
+      const startTime = firstSegment.timeDepart || firstSegment.startTime || 0
+      const endTime = lastSegment.timeFin || lastSegment.endTime || 
+                     (lastSegment.timeDepart || lastSegment.startTime || 0) + 5
+      
+      const totalSeconds = Math.max(0, endTime - startTime)
+      return this.formatTime(totalSeconds)
+    },
+
+    speakingTimeBySpeaker() {
+      const timeBySpeaker = {}
+      
+      if (!this.meeting.segments) return timeBySpeaker
+      
+      this.meeting.segments.forEach(segment => {
+        const speakerId = this.getSegmentSpeakerId(segment) || 'unassigned'
+        const startTime = segment.timeDepart || segment.startTime || 0
+        const endTime = segment.timeFin || segment.endTime || startTime + 5
+        const duration = Math.max(0, endTime - startTime)
+        
+        if (!timeBySpeaker[speakerId]) {
+          timeBySpeaker[speakerId] = 0
+        }
+        timeBySpeaker[speakerId] += duration
+      })
+      
+      return timeBySpeaker
     }
   },
 
@@ -437,6 +701,7 @@ export default {
         
         this.isLoading = false
         this.initializeAudioPlayer()
+        this.generateSummary()
       } catch (error) {
         console.error('Erreur lors du chargement de la réunion:', error)
         this.error = error?.message || 'Impossible de charger les détails de la réunion. Veuillez réessayer plus tard.'
@@ -739,6 +1004,260 @@ export default {
     exportTranscript() {
       // Implémentez l'exportation de la transcription (PDF, TXT, etc.)
       alert('Fonction d\'exportation à implémenter')
+    },
+
+    // Méthodes pour la synthèse
+    getSpeakingPercentage(time) {
+      const totalTime = Object.values(this.speakingTimeBySpeaker).reduce((sum, t) => sum + t, 0)
+      if (totalTime === 0) return 0
+      return Math.round((time / totalTime) * 100)
+    },
+
+    formatDurationFromSeconds(seconds) {
+      return this.formatTime(seconds)
+    },
+
+    editSegment(segment) {
+      if (this.editingSegmentId === segment.id) {
+        this.cancelSegmentEdit()
+      } else {
+        this.editingSegmentId = segment.id
+        this.editingSegmentText = segment.texte || segment.text || ''
+      }
+    },
+
+    saveSegmentEdit(segment) {
+      if (!this.editingSegmentText.trim()) {
+        alert('Le texte ne peut pas être vide')
+        return
+      }
+      
+      // Mettre à jour localement (côté frontend uniquement)
+      const segmentIndex = this.meeting.segments.findIndex(s => s.id === segment.id)
+      if (segmentIndex !== -1) {
+        this.meeting.segments[segmentIndex].texte = this.editingSegmentText
+        this.meeting.segments[segmentIndex].text = this.editingSegmentText
+        console.log('✅ Segment modifié localement:', segment.id)
+      }
+      
+      this.cancelSegmentEdit()
+    },
+
+    cancelSegmentEdit() {
+      this.editingSegmentId = null
+      this.editingSegmentText = ''
+    },
+
+    mergeWithNext(segment, currentIndex) {
+      if (currentIndex >= this.meeting.segments.length - 1) {
+        alert('Impossible de fusionner : c\'est le dernier segment')
+        return
+      }
+      
+      if (!confirm('Fusionner ce segment avec le suivant ?')) {
+        return
+      }
+      
+      const nextSegment = this.meeting.segments[currentIndex + 1]
+      const mergedText = (segment.texte || segment.text || '') + ' ' + (nextSegment.texte || nextSegment.text || '')
+      
+      // Fusionner les segments (côté frontend uniquement)
+      segment.texte = mergedText.trim()
+      segment.text = mergedText.trim()
+      segment.timeFin = nextSegment.timeFin || nextSegment.endTime || 
+                        (nextSegment.timeDepart || nextSegment.startTime || 0) + 5
+      segment.endTime = segment.timeFin
+      
+      // Supprimer le segment suivant
+      this.meeting.segments.splice(currentIndex + 1, 1)
+      console.log('✅ Segments fusionnés')
+    },
+
+    splitSegment(segment) {
+      const text = segment.texte || segment.text || ''
+      if (!text.trim()) {
+        alert('Le segment est vide, impossible de le scinder')
+        return
+      }
+      
+      const splitPosition = prompt(
+        'À quelle position voulez-vous scinder le segment ?\n' +
+        'Entrez un nombre entre 0 et ' + text.length + ' (position du caractère)',
+        Math.floor(text.length / 2).toString()
+      )
+      
+      if (splitPosition === null) return
+      
+      const position = parseInt(splitPosition)
+      if (isNaN(position) || position < 0 || position > text.length) {
+        alert('Position invalide')
+        return
+      }
+      
+      const firstPart = text.substring(0, position).trim()
+      const secondPart = text.substring(position).trim()
+      
+      if (!firstPart || !secondPart) {
+        alert('La scission doit créer deux parties non vides')
+        return
+      }
+      
+      // Calculer le temps de scission (proportionnel)
+      const startTime = segment.timeDepart || segment.startTime || 0
+      const endTime = segment.timeFin || segment.endTime || startTime + 5
+      const duration = endTime - startTime
+      const splitTime = startTime + (duration * (position / text.length))
+      
+      // Mettre à jour le segment actuel
+      segment.texte = firstPart
+      segment.text = firstPart
+      segment.timeFin = splitTime
+      segment.endTime = splitTime
+      
+      // Créer le nouveau segment
+      const newSegment = {
+        id: `split_${Date.now()}`,
+        texte: secondPart,
+        text: secondPart,
+        timeDepart: splitTime,
+        startTime: splitTime,
+        timeFin: endTime,
+        endTime: endTime,
+        locuteur: segment.locuteur,
+        locuteurId: segment.locuteurId,
+        speakerId: segment.speakerId
+      }
+      
+      // Insérer le nouveau segment après le segment actuel
+      const segmentIndex = this.meeting.segments.findIndex(s => s.id === segment.id)
+      if (segmentIndex !== -1) {
+        this.meeting.segments.splice(segmentIndex + 1, 0, newSegment)
+        console.log('✅ Segment scindé')
+      }
+    },
+
+    generateSummary() {
+      if (!this.meeting.segments || this.meeting.segments.length === 0) {
+        this.generatedSummary = ''
+        return
+      }
+      
+      // Générer un résumé simple à partir des segments
+      const allText = this.meeting.segments
+        .map(s => s.texte || s.text || '')
+        .filter(t => t.trim())
+        .join('. ')
+      
+      if (!allText) {
+        this.generatedSummary = 'Aucun contenu disponible pour générer un résumé.'
+        return
+      }
+      
+      // Résumé simple : prendre les premières phrases
+      const sentences = allText.split(/[.!?]+/).filter(s => s.trim())
+      const summaryLength = Math.min(3, Math.ceil(sentences.length * 0.2))
+      const summary = sentences.slice(0, summaryLength).join('. ').trim()
+      
+      this.generatedSummary = summary + (summary.length < allText.length ? '...' : '')
+    },
+
+    triggerSegmentsFileLoad() {
+      if (this.$refs.segmentsFileInput) {
+        this.$refs.segmentsFileInput.click()
+      }
+    },
+
+    async handleSegmentsFileLoad(event) {
+      const file = event.target.files?.[0]
+      if (!file) return
+
+      try {
+        const fileContent = await file.text()
+        const segments = JSON.parse(fileContent)
+        
+        if (!Array.isArray(segments)) {
+          alert('❌ Le fichier JSON doit contenir un tableau de segments')
+          return
+        }
+
+        // Ajouter les segments au meeting
+        if (!this.meeting.segments) {
+          this.meeting.segments = []
+        }
+        
+        // Ajouter un ID si manquant et normaliser les propriétés
+        const normalizedSegments = segments.map((seg, index) => ({
+          id: seg.id || `test_${Date.now()}_${index}`,
+          texte: seg.texte || seg.text || '',
+          text: seg.text || seg.texte || '',
+          timeDepart: seg.timeDepart || seg.startTime || index * 5,
+          startTime: seg.startTime || seg.timeDepart || index * 5,
+          timeFin: seg.timeFin || seg.endTime || (seg.timeDepart || seg.startTime || index * 5) + 5,
+          endTime: seg.endTime || seg.timeFin || (seg.timeDepart || seg.startTime || index * 5) + 5,
+          locuteurId: seg.locuteurId || seg.speakerId || seg.locuteur?.id,
+          speakerId: seg.speakerId || seg.locuteurId || seg.locuteur?.id,
+          locuteur: seg.locuteur || null
+        }))
+
+        this.meeting.segments.push(...normalizedSegments)
+        this.generateSummary()
+        
+        console.log(`✅ ${normalizedSegments.length} segment(s) chargé(s) depuis le fichier`)
+        alert(`✅ ${normalizedSegments.length} segment(s) chargé(s) avec succès !`)
+        
+        // Réinitialiser l'input
+        if (this.$refs.segmentsFileInput) {
+          this.$refs.segmentsFileInput.value = ''
+        }
+      } catch (error) {
+        console.error('❌ Erreur lors du chargement du fichier:', error)
+        alert(`❌ Erreur lors du chargement : ${error.message}`)
+      }
+    },
+
+    loadTestSegmentsIfNeeded() {
+      // Charger des segments de test si aucun segment n'existe après le chargement initial
+      setTimeout(() => {
+        if ((!this.meeting.segments || this.meeting.segments.length === 0) && !this.isLoading) {
+          // Optionnel : charger des segments de test par défaut
+          // Décommentez les lignes suivantes pour activer les segments de test par défaut
+          /*
+          this.meeting.segments = [
+            {
+              id: 'test_1',
+              texte: 'Bonjour tout le monde, bienvenue à cette réunion.',
+              text: 'Bonjour tout le monde, bienvenue à cette réunion.',
+              timeDepart: 0,
+              startTime: 0,
+              timeFin: 5,
+              endTime: 5,
+              locuteurId: this.meeting.participants?.[0]?.id || 1
+            },
+            {
+              id: 'test_2',
+              texte: 'Nous allons discuter des points importants de notre projet.',
+              text: 'Nous allons discuter des points importants de notre projet.',
+              timeDepart: 5,
+              startTime: 5,
+              timeFin: 12,
+              endTime: 12,
+              locuteurId: this.meeting.participants?.[1]?.id || 2
+            }
+          ]
+          this.generateSummary()
+          */
+        }
+      }, 2000)
+    }
+  },
+
+  watch: {
+    'meeting.segments': {
+      handler() {
+        // Régénérer le résumé quand les segments changent
+        this.generateSummary()
+      },
+      deep: true
     }
   }
 }
@@ -1441,5 +1960,296 @@ export default {
   .btn {
     width: 100%;
   }
+}
+/* Styles pour les onglets */
+.tabs-container {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 2rem;
+  border-bottom: 2px solid #e5e7eb;
+}
+
+.tab-button {
+  padding: 0.75rem 1.5rem;
+  border: none;
+  background: transparent;
+  color: #6b7280;
+  font-size: 1rem;
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+  transition: all 0.2s;
+}
+
+.tab-button:hover {
+  color: #3b82f6;
+}
+
+.tab-button.active {
+  color: #3b82f6;
+  border-bottom-color: #3b82f6;
+}
+
+.tab-button svg {
+  width: 1.2em;
+  height: 1.2em;
+}
+
+/* Styles pour la synthèse */
+.synthesis-container {
+  margin-top: 2rem;
+}
+
+.synthesis-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.stat-card {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 12px;
+  padding: 1.5rem;
+  color: white;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.stat-icon {
+  width: 3rem;
+  height: 3rem;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.stat-icon svg {
+  width: 1.5rem;
+  height: 1.5rem;
+}
+
+.stat-content {
+  flex: 1;
+}
+
+.stat-label {
+  font-size: 0.85rem;
+  opacity: 0.9;
+  margin-bottom: 0.25rem;
+}
+
+.stat-value {
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+.speaking-time-section,
+.summary-section,
+.editable-segments-section {
+  background: #f9fafb;
+  border-radius: 12px;
+  padding: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.speaking-time-section h4,
+.summary-section h4,
+.editable-segments-section h4 {
+  margin: 0 0 1rem 0;
+  color: #2c3e50;
+  font-size: 1.2rem;
+}
+
+.speaking-time-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.speaking-time-item {
+  background: white;
+  border-radius: 8px;
+  padding: 1rem;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.speaker-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.speaker-name {
+  font-weight: 600;
+  color: #2c3e50;
+}
+
+.speaking-percentage {
+  font-weight: 700;
+  color: #3b82f6;
+  font-size: 1.1rem;
+}
+
+.speaking-time-bar {
+  height: 8px;
+  background: #e5e7eb;
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 0.5rem;
+}
+
+.speaking-time-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #3b82f6, #8b5cf6);
+  transition: width 0.3s ease;
+}
+
+.speaking-time-value {
+  font-size: 0.9rem;
+  color: #6b7280;
+}
+
+.summary-content {
+  background: white;
+  border-radius: 8px;
+  padding: 1.5rem;
+  line-height: 1.8;
+  color: #374151;
+}
+
+.no-summary {
+  color: #9ca3af;
+  font-style: italic;
+}
+
+.editable-segments-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.editable-segment {
+  background: white;
+  border-radius: 8px;
+  padding: 1rem;
+  border: 2px solid #e5e7eb;
+  transition: all 0.2s;
+}
+
+.editable-segment:hover {
+  border-color: #3b82f6;
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.1);
+}
+
+.editable-segment.editing {
+  border-color: #3b82f6;
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
+}
+
+.segment-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.action-btn {
+  padding: 0.5rem;
+  border: 1px solid #e5e7eb;
+  background: white;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.action-btn:hover:not(:disabled) {
+  background: #f3f4f6;
+  border-color: #3b82f6;
+}
+
+.action-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.action-btn svg {
+  width: 1.2rem;
+  height: 1.2rem;
+  color: #6b7280;
+}
+
+.action-btn:hover:not(:disabled) svg {
+  color: #3b82f6;
+}
+
+.segment-editor {
+  margin-top: 0.5rem;
+}
+
+.segment-text-input {
+  width: 100%;
+  padding: 0.75rem;
+  border: 2px solid #3b82f6;
+  border-radius: 6px;
+  font-size: 0.95rem;
+  font-family: inherit;
+  resize: vertical;
+  min-height: 80px;
+}
+
+.editor-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.btn-sm {
+  padding: 0.5rem 1rem;
+  font-size: 0.9rem;
+}
+
+.segment-content {
+  margin-top: 0.5rem;
+}
+
+.segment-header-info {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  margin-bottom: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.segment-speaker-badge {
+  padding: 0.25rem 0.75rem;
+  background: #e0e7ff;
+  color: #4338ca;
+  border-radius: 12px;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.segment-time-info {
+  font-size: 0.85rem;
+  color: #6b7280;
+}
+
+.segment-text-display {
+  color: #374151;
+  line-height: 1.6;
+  white-space: pre-wrap;
 }
 </style>
