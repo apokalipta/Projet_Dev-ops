@@ -11,7 +11,8 @@ Dio dio(Ref ref) {
   final dio = Dio();
   
   // URL de base de votre API (configurée dans api_config.dart)
-  dio.options.baseUrl = ApiConfig.getBaseUrl();
+  // Utilise le Meeting Service par défaut
+  dio.options.baseUrl = ApiConfig.getMeetingServiceUrl();
   dio.options.connectTimeout = ApiConfig.connectTimeout;
   dio.options.receiveTimeout = ApiConfig.receiveTimeout;
   dio.options.sendTimeout = ApiConfig.sendTimeout;

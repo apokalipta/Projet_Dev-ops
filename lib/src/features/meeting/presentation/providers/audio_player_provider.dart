@@ -1,7 +1,6 @@
 import 'package:just_audio/just_audio.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
-import '../../../../core/data/mock_audio_data.dart';
-import '../../../../core/data/mock_data.dart';
+// Mock data imports removed - using real backend
 
 part 'audio_player_provider.g.dart';
 
@@ -81,8 +80,16 @@ class AudioPlayerNotifier extends _$AudioPlayerNotifier {
       _audioPlayer = AudioPlayer();
       _currentMeetingId = meetingId;
 
-      // Obtenir l'URL audio
-      final audioUrl = MockAudioData.getAudioUrl(meetingId);
+      // Déterminer l'URL audio selon la réunion
+      String? audioUrl;
+      if (meetingId == 'demo-999') {
+        // Réunion de démonstration - utiliser l'audio local
+        audioUrl = 'assets/audio/demo_meeting.mp3';
+      } else {
+        // TODO: Fetch audio URL from backend API for real meetings
+        audioUrl = null; // Will be implemented with backend API
+      }
+      
       if (audioUrl == null) {
         throw Exception('Aucun audio disponible pour cette réunion');
       }
@@ -96,7 +103,8 @@ class AudioPlayerNotifier extends _$AudioPlayerNotifier {
 
       // Écouter les changements de position
       _audioPlayer!.positionStream.listen((position) {
-        final segments = MockData.getSegments(meetingId);
+        // TODO: Fetch segments from backend API
+        final segments = <Map<String, dynamic>>[]; // Will be implemented with backend API
         final currentSegment = _findSegmentAtPosition(segments, position);
 
         state = state.copyWith(
@@ -166,7 +174,8 @@ class AudioPlayerNotifier extends _$AudioPlayerNotifier {
 
   /// Aller à un segment spécifique
   Future<void> seekToSegment(String meetingId, String segmentId) async {
-    final segments = MockData.getSegments(meetingId);
+    // TODO: Fetch segments from backend API
+    final segments = <Map<String, dynamic>>[]; // Will be implemented with backend API
     final segment = segments.firstWhere(
       (s) => s['id'] == segmentId,
       orElse: () => {},

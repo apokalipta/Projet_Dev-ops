@@ -3,8 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../domain/entities/meeting.dart';
 import '../providers/meeting_provider.dart';
-import '../../../../core/data/mock_audio_data.dart';
-import '../../../../core/data/mock_data.dart';
+// Mock data imports removed - using real backend
 
 /// Écran de détails d'une réunion
 class MeetingDetailsScreen extends ConsumerStatefulWidget {
@@ -83,8 +82,9 @@ class _MeetingDetailsScreenState extends ConsumerState<MeetingDetailsScreen> {
           orElse: () => throw Exception('Réunion non trouvée'),
         );
 
-        final hasAudio = MockAudioData.hasAudio(widget.meetingId);
-        final hasTranscript = MockData.getSegments(widget.meetingId).isNotEmpty;
+        // TODO: Implement real audio/transcript check from backend
+        final hasAudio = meeting.id == 'demo-999'; // Demo meeting has audio
+        final hasTranscript = meeting.id == 'demo-999'; // Demo meeting has transcript
         final isCompleted = meeting.status == MeetingStatus.completed || 
                            meeting.status == MeetingStatus.transcribed;
 

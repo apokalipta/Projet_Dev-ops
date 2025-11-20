@@ -84,6 +84,16 @@ class MeetingRemoteDataSource {
     }
   }
 
+  /// DELETE /api/meeting/{id} - Supprimer une réunion
+  /// Retourne HTTP 204 No Content en cas de succès
+  Future<void> deleteMeeting(int id) async {
+    try {
+      await dioClient.delete('/meeting/$id');
+    } on DioException {
+      rethrow;
+    }
+  }
+
   // ==================== PARTICIPANTS ====================
 
   /// GET /api/meeting/{id}/participant/all - Lister les participants d'une réunion

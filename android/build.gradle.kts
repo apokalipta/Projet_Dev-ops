@@ -2,6 +2,13 @@ allprojects {
     repositories {
         google()
         mavenCentral()
+        // Dépôt Maven pour ffmpeg-kit
+        maven {
+            url = uri("https://github.com/arthenica/ffmpeg-kit/releases/download/v6.0/")
+        }
+        maven {
+            url = uri("https://jitpack.io")
+        }
     }
 }
 

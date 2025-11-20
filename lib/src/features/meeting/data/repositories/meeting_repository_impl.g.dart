@@ -6,7 +6,7 @@ part of 'meeting_repository_impl.dart';
 // RiverpodGenerator
 // **************************************************************************
 
-String _$meetingRepositoryHash() => r'8833965d208a72e6009a57b160219a1b557ac43b';
+String _$meetingRepositoryHash() => r'c5d5d21c37271eb3b0304dcfa9eadd17b8809b54';
 
 /// See also [meetingRepository].
 @ProviderFor(meetingRepository)

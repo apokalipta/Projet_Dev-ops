@@ -11,13 +11,14 @@ class MeetingModel with _$MeetingModel {
   const factory MeetingModel({
     required String id,
     required String title,
-    required DateTime date,
+    @JsonKey(name: 'scheduledAt') DateTime? date, // Backend utilise scheduledAt
     @Default('fr') String language,
     required String status, // String pour faciliter JSON
-    int? duration,
-    required List<ParticipantModel> participants,
+    @JsonKey(name: 'durationMinutes') int? duration, // Backend utilise durationMinutes
+    @Default([]) List<ParticipantModel> participants, // Peut être vide
     DateTime? createdAt,
     DateTime? updatedAt,
+    String? description, // Ajout du champ description
   }) = _MeetingModel;
 
   const MeetingModel._();
@@ -30,13 +31,14 @@ class MeetingModel with _$MeetingModel {
     return Meeting(
       id: id,
       title: title,
-      date: date,
+      date: date ?? DateTime.now(), // Utiliser DateTime.now() si null
       language: language,
       status: _parseStatus(status),
       duration: duration,
       participants: participants.map((p) => p.toEntity()).toList(),
       createdAt: createdAt,
       updatedAt: updatedAt,
+      description: description,
     );
   }
 

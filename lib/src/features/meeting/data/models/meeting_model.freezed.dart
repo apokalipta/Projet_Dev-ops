@@ -22,14 +22,20 @@ MeetingModel _$MeetingModelFromJson(Map<String, dynamic> json) {
 mixin _$MeetingModel {
   String get id => throw _privateConstructorUsedError;
   String get title => throw _privateConstructorUsedError;
-  DateTime get date => throw _privateConstructorUsedError;
+  @JsonKey(name: 'scheduledAt')
+  DateTime? get date =>
+      throw _privateConstructorUsedError; // Backend utilise scheduledAt
   String get language => throw _privateConstructorUsedError;
   String get status =>
       throw _privateConstructorUsedError; // String pour faciliter JSON
-  int? get duration => throw _privateConstructorUsedError;
-  List<ParticipantModel> get participants => throw _privateConstructorUsedError;
+  @JsonKey(name: 'durationMinutes')
+  int? get duration =>
+      throw _privateConstructorUsedError; // Backend utilise durationMinutes
+  List<ParticipantModel> get participants =>
+      throw _privateConstructorUsedError; // Peut être vide
   DateTime? get createdAt => throw _privateConstructorUsedError;
   DateTime? get updatedAt => throw _privateConstructorUsedError;
+  String? get description => throw _privateConstructorUsedError;
 
   /// Serializes this MeetingModel to a JSON map.
   Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
@@ -50,13 +56,14 @@ abstract class $MeetingModelCopyWith<$Res> {
   $Res call(
       {String id,
       String title,
-      DateTime date,
+      @JsonKey(name: 'scheduledAt') DateTime? date,
       String language,
       String status,
-      int? duration,
+      @JsonKey(name: 'durationMinutes') int? duration,
       List<ParticipantModel> participants,
       DateTime? createdAt,
-      DateTime? updatedAt});
+      DateTime? updatedAt,
+      String? description});
 }
 
 /// @nodoc
@@ -76,13 +83,14 @@ class _$MeetingModelCopyWithImpl<$Res, $Val extends MeetingModel>
   $Res call({
     Object? id = null,
     Object? title = null,
-    Object? date = null,
+    Object? date = freezed,
     Object? language = null,
     Object? status = null,
     Object? duration = freezed,
     Object? participants = null,
     Object? createdAt = freezed,
     Object? updatedAt = freezed,
+    Object? description = freezed,
   }) {
     return _then(_value.copyWith(
       id: null == id
@@ -93,10 +101,10 @@ class _$MeetingModelCopyWithImpl<$Res, $Val extends MeetingModel>
           ? _value.title
           : title // ignore: cast_nullable_to_non_nullable
               as String,
-      date: null == date
+      date: freezed == date
           ? _value.date
           : date // ignore: cast_nullable_to_non_nullable
-              as DateTime,
+              as DateTime?,
       language: null == language
           ? _value.language
           : language // ignore: cast_nullable_to_non_nullable
@@ -121,6 +129,10 @@ class _$MeetingModelCopyWithImpl<$Res, $Val extends MeetingModel>
           ? _value.updatedAt
           : updatedAt // ignore: cast_nullable_to_non_nullable
               as DateTime?,
+      description: freezed == description
+          ? _value.description
+          : description // ignore: cast_nullable_to_non_nullable
+              as String?,
     ) as $Val);
   }
 }
@@ -136,13 +148,14 @@ abstract class _$$MeetingModelImplCopyWith<$Res>
   $Res call(
       {String id,
       String title,
-      DateTime date,
+      @JsonKey(name: 'scheduledAt') DateTime? date,
       String language,
       String status,
-      int? duration,
+      @JsonKey(name: 'durationMinutes') int? duration,
       List<ParticipantModel> participants,
       DateTime? createdAt,
-      DateTime? updatedAt});
+      DateTime? updatedAt,
+      String? description});
 }
 
 /// @nodoc
@@ -160,13 +173,14 @@ class __$$MeetingModelImplCopyWithImpl<$Res>
   $Res call({
     Object? id = null,
     Object? title = null,
-    Object? date = null,
+    Object? date = freezed,
     Object? language = null,
     Object? status = null,
     Object? duration = freezed,
     Object? participants = null,
     Object? createdAt = freezed,
     Object? updatedAt = freezed,
+    Object? description = freezed,
   }) {
     return _then(_$MeetingModelImpl(
       id: null == id
@@ -177,10 +191,10 @@ class __$$MeetingModelImplCopyWithImpl<$Res>
           ? _value.title
           : title // ignore: cast_nullable_to_non_nullable
               as String,
-      date: null == date
+      date: freezed == date
           ? _value.date
           : date // ignore: cast_nullable_to_non_nullable
-              as DateTime,
+              as DateTime?,
       language: null == language
           ? _value.language
           : language // ignore: cast_nullable_to_non_nullable
@@ -205,6 +219,10 @@ class __$$MeetingModelImplCopyWithImpl<$Res>
           ? _value.updatedAt
           : updatedAt // ignore: cast_nullable_to_non_nullable
               as DateTime?,
+      description: freezed == description
+          ? _value.description
+          : description // ignore: cast_nullable_to_non_nullable
+              as String?,
     ));
   }
 }
@@ -215,13 +233,14 @@ class _$MeetingModelImpl extends _MeetingModel {
   const _$MeetingModelImpl(
       {required this.id,
       required this.title,
-      required this.date,
+      @JsonKey(name: 'scheduledAt') this.date,
       this.language = 'fr',
       required this.status,
-      this.duration,
-      required final List<ParticipantModel> participants,
+      @JsonKey(name: 'durationMinutes') this.duration,
+      final List<ParticipantModel> participants = const [],
       this.createdAt,
-      this.updatedAt})
+      this.updatedAt,
+      this.description})
       : _participants = participants,
         super._();
 
@@ -233,7 +252,9 @@ class _$MeetingModelImpl extends _MeetingModel {
   @override
   final String title;
   @override
-  final DateTime date;
+  @JsonKey(name: 'scheduledAt')
+  final DateTime? date;
+// Backend utilise scheduledAt
   @override
   @JsonKey()
   final String language;
@@ -241,23 +262,30 @@ class _$MeetingModelImpl extends _MeetingModel {
   final String status;
 // String pour faciliter JSON
   @override
+  @JsonKey(name: 'durationMinutes')
   final int? duration;
+// Backend utilise durationMinutes
   final List<ParticipantModel> _participants;
+// Backend utilise durationMinutes
   @override
+  @JsonKey()
   List<ParticipantModel> get participants {
     if (_participants is EqualUnmodifiableListView) return _participants;
     // ignore: implicit_dynamic_type
     return EqualUnmodifiableListView(_participants);
   }
 
+// Peut être vide
   @override
   final DateTime? createdAt;
   @override
   final DateTime? updatedAt;
+  @override
+  final String? description;
 
   @override
   String toString() {
-    return 'MeetingModel(id: $id, title: $title, date: $date, language: $language, status: $status, duration: $duration, participants: $participants, createdAt: $createdAt, updatedAt: $updatedAt)';
+    return 'MeetingModel(id: $id, title: $title, date: $date, language: $language, status: $status, duration: $duration, participants: $participants, createdAt: $createdAt, updatedAt: $updatedAt, description: $description)';
   }
 
   @override
@@ -278,7 +306,9 @@ class _$MeetingModelImpl extends _MeetingModel {
             (identical(other.createdAt, createdAt) ||
                 other.createdAt == createdAt) &&
             (identical(other.updatedAt, updatedAt) ||
-                other.updatedAt == updatedAt));
+                other.updatedAt == updatedAt) &&
+            (identical(other.description, description) ||
+                other.description == description));
   }
 
   @JsonKey(includeFromJson: false, includeToJson: false)
@@ -293,7 +323,8 @@ class _$MeetingModelImpl extends _MeetingModel {
       duration,
       const DeepCollectionEquality().hash(_participants),
       createdAt,
-      updatedAt);
+      updatedAt,
+      description);
 
   /// Create a copy of MeetingModel
   /// with the given fields replaced by the non-null parameter values.
@@ -315,13 +346,14 @@ abstract class _MeetingModel extends MeetingModel {
   const factory _MeetingModel(
       {required final String id,
       required final String title,
-      required final DateTime date,
+      @JsonKey(name: 'scheduledAt') final DateTime? date,
       final String language,
       required final String status,
-      final int? duration,
-      required final List<ParticipantModel> participants,
+      @JsonKey(name: 'durationMinutes') final int? duration,
+      final List<ParticipantModel> participants,
       final DateTime? createdAt,
-      final DateTime? updatedAt}) = _$MeetingModelImpl;
+      final DateTime? updatedAt,
+      final String? description}) = _$MeetingModelImpl;
   const _MeetingModel._() : super._();
 
   factory _MeetingModel.fromJson(Map<String, dynamic> json) =
@@ -332,19 +364,23 @@ abstract class _MeetingModel extends MeetingModel {
   @override
   String get title;
   @override
-  DateTime get date;
+  @JsonKey(name: 'scheduledAt')
+  DateTime? get date; // Backend utilise scheduledAt
   @override
   String get language;
   @override
   String get status; // String pour faciliter JSON
   @override
-  int? get duration;
+  @JsonKey(name: 'durationMinutes')
+  int? get duration; // Backend utilise durationMinutes
   @override
-  List<ParticipantModel> get participants;
+  List<ParticipantModel> get participants; // Peut être vide
   @override
   DateTime? get createdAt;
   @override
   DateTime? get updatedAt;
+  @override
+  String? get description;
 
   /// Create a copy of MeetingModel
   /// with the given fields replaced by the non-null parameter values.

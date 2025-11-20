@@ -56,12 +56,56 @@ class MeetingCard extends StatelessWidget {
               ),
               const SizedBox(height: 4),
               Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Icon(Icons.people, size: 16, color: Colors.grey),
                   const SizedBox(width: 8),
-                  Text(
-                    '${meeting.participants.length} participant${meeting.participants.length > 1 ? 's' : ''}',
-                    style: const TextStyle(color: Colors.grey),
+                  Expanded(
+                    child: meeting.participants.isEmpty
+                        ? const Text(
+                            '0 participant',
+                            style: TextStyle(color: Colors.grey),
+                          )
+                        : Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                '${meeting.participants.length} participant${meeting.participants.length > 1 ? 's' : ''}',
+                                style: const TextStyle(
+                                  color: Colors.grey,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Wrap(
+                                spacing: 6,
+                                runSpacing: 4,
+                                children: meeting.participants.map((participant) {
+                                  return Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 4,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: Colors.blue.withOpacity(0.1),
+                                      borderRadius: BorderRadius.circular(12),
+                                      border: Border.all(
+                                        color: Colors.blue.withOpacity(0.3),
+                                      ),
+                                    ),
+                                    child: Text(
+                                      participant.name,
+                                      style: TextStyle(
+                                        color: Colors.blue[700],
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  );
+                                }).toList(),
+                              ),
+                            ],
+                          ),
                   ),
                 ],
               ),

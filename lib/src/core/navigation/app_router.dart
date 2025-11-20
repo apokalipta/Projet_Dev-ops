@@ -10,6 +10,7 @@ import 'package:meeting_app/src/features/meeting/presentation/screens/meeting_de
 import 'package:meeting_app/src/features/meeting/presentation/screens/meeting_playback_screen.dart';
 import 'package:meeting_app/src/features/meeting/presentation/screens/meeting_transcript_screen.dart';
 import 'package:meeting_app/src/features/meeting/presentation/screens/meeting_recording_screen.dart';
+import 'package:meeting_app/src/features/meeting/presentation/screens/define_participants_screen.dart';
 import 'package:meeting_app/src/features/settings/presentation/screens/settings_screen.dart';
 
 part 'app_router.g.dart';
@@ -75,6 +76,20 @@ GoRouter goRouter(Ref ref) {
         builder: (BuildContext context, GoRouterState state) {
           final meetingId = state.pathParameters['id']!;
           return MeetingTranscriptScreen(meetingId: meetingId);
+        },
+      ),
+      // Définition des participants avant l'enregistrement
+      GoRoute(
+        path: '/define-participants/:id',
+        builder: (BuildContext context, GoRouterState state) {
+          final meetingId = state.pathParameters['id']!;
+          final meetingTitle = state.uri.queryParameters['title'] ?? 'Réunion';
+          final participantCount = int.tryParse(state.uri.queryParameters['count'] ?? '1') ?? 1;
+          return DefineParticipantsScreen(
+            meetingId: meetingId,
+            meetingTitle: meetingTitle,
+            participantCount: participantCount,
+          );
         },
       ),
       // Enregistrement d'une réunion en direct

@@ -190,6 +190,13 @@ class _MeetingRecordingScreenState extends ConsumerState<MeetingRecordingScreen>
           foregroundColor: Colors.white,
           title: Text(widget.meetingTitle),
           centerTitle: true,
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back),
+            onPressed: () {
+              // Retourner à la page de définition des participants
+              context.pop();
+            },
+          ),
         ),
         body: SafeArea(
           child: Column(
@@ -432,27 +439,11 @@ class _MeetingRecordingScreenState extends ConsumerState<MeetingRecordingScreen>
     );
   }
 
-  /// Contrôles (pause, stop)
+  /// Contrôles (stop uniquement)
   Widget _buildControls(RecordingState state) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        // Bouton Pause/Reprendre
-        _buildControlButton(
-          icon: state.isPaused ? Icons.play_arrow : Icons.pause,
-          label: state.isPaused ? 'Reprendre' : 'Pause',
-          color: Colors.orange,
-          onPressed: () {
-            if (state.isPaused) {
-              ref.read(recordingNotifierProvider.notifier).resumeRecording();
-            } else {
-              ref.read(recordingNotifierProvider.notifier).pauseRecording();
-            }
-          },
-        ),
-        
-        const SizedBox(width: 40),
-        
         // Bouton Stop
         _buildControlButton(
           icon: Icons.stop,

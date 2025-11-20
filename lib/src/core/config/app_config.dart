@@ -1,19 +1,12 @@
 /// Configuration globale de l'application
 /// 
 /// Ce fichier centralise les paramètres de configuration de l'application.
-/// Modifiez `useMockData` pour basculer entre les données mockées et l'API réelle.
 
 class AppConfig {
   // ============================================================================
   // MODE DE DÉVELOPPEMENT
   // ============================================================================
   
-  /// Active les données mockées pour le développement
-  /// 
-  /// - `true` : Utilise MockApiService avec des données fictives
-  /// - `false` : Utilise les vraies APIs (MeetingApiService, TranscriptionApiService)
-  static const bool useMockData = true;
-
   /// Active le mode debug
   static const bool debugMode = true;
 
@@ -24,14 +17,11 @@ class AppConfig {
   // API CONFIGURATION
   // ============================================================================
   
-  /// URL de base de l'API (utilisée quand useMockData = false)
-  static const String apiBaseUrl = 'http://localhost:8080/api';
+  /// URL de base de l'API Meeting-service
+  static const String apiBaseUrl = 'http://localhost:8081/api';
 
   /// Timeout pour les requêtes API (en secondes)
   static const int apiTimeout = 30;
-
-  /// Délai de simulation réseau pour les mocks (en millisecondes)
-  static const int mockNetworkDelay = 500;
 
   // ============================================================================
   // FEATURES FLAGS
@@ -85,7 +75,6 @@ class AppConfig {
     ╔════════════════════════════════════════╗
     ║     Configuration de l'application     ║
     ╠════════════════════════════════════════╣
-    ║ Mode Mock:        ${useMockData ? 'ACTIVÉ ✅' : 'DÉSACTIVÉ ❌'}    ║
     ║ Debug Mode:       ${debugMode ? 'ACTIVÉ ✅' : 'DÉSACTIVÉ ❌'}    ║
     ║ API Base URL:     $apiBaseUrl
     ║ Transcription:    ${enableTranscription ? 'ACTIVÉ ✅' : 'DÉSACTIVÉ ❌'}    ║
@@ -96,8 +85,8 @@ class AppConfig {
   }
 
   /// Vérifie si l'application est en mode développement
-  static bool get isDevelopment => useMockData || debugMode;
+  static bool get isDevelopment => debugMode;
 
   /// Vérifie si l'application est en mode production
-  static bool get isProduction => !useMockData && !debugMode;
+  static bool get isProduction => !debugMode;
 }

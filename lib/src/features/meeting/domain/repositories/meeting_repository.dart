@@ -6,7 +6,7 @@ abstract class MeetingRepository {
   
   Future<Meeting> getMeetingById(String id);
   
-  Future<void> createMeeting(Meeting meeting);
+  Future<Meeting> createMeeting(Meeting meeting);
   
   Future<void> updateMeeting(Meeting meeting);
   

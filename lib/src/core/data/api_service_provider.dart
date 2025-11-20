@@ -2,36 +2,23 @@ import 'package:dio/dio.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import '../api/meeting_api_service.dart';
 import '../api/transcription_api_service.dart';
-import '../config/app_config.dart';
-import 'mock_api_service.dart';
 
 part 'api_service_provider.g.dart';
 
-/// Provider qui retourne le service Meeting approprié selon la configuration
-/// 
-/// - Si `AppConfig.useMockData` est `true`, retourne MockApiService
-/// - Sinon, retourne MeetingApiService (API réelle)
+/// Provider qui retourne le service Meeting (API réelle uniquement)
 @riverpod
 MeetingServiceInterface meetingService(MeetingServiceRef ref) {
-  if (AppConfig.useMockData) {
-    return MockMeetingServiceAdapter(ref.watch(mockApiServiceProvider));
-  } else {
-    return RealMeetingServiceAdapter(ref.watch(meetingApiServiceProvider));
-  }
+  return RealMeetingServiceAdapter(ref.watch(meetingApiServiceProvider));
 }
 
-/// Provider qui retourne le service Transcription approprié selon la configuration
+/// Provider qui retourne le service Transcription (API réelle uniquement)
 @riverpod
 TranscriptionServiceInterface transcriptionService(
   TranscriptionServiceRef ref,
 ) {
-  if (AppConfig.useMockData) {
-    return MockTranscriptionServiceAdapter(ref.watch(mockApiServiceProvider));
-  } else {
-    return RealTranscriptionServiceAdapter(
-      ref.watch(transcriptionApiServiceProvider),
-    );
-  }
+  return RealTranscriptionServiceAdapter(
+    ref.watch(transcriptionApiServiceProvider),
+  );
 }
 
 // ============================================================================
@@ -62,103 +49,7 @@ abstract class TranscriptionServiceInterface {
   Future<Response> getSegmentEndTime(String meetingId, String segmentId);
 }
 
-// ============================================================================
-// ADAPTERS POUR MOCK API SERVICE
-// ============================================================================
-
-/// Adaptateur pour utiliser MockApiService comme MeetingServiceInterface
-class MockMeetingServiceAdapter implements MeetingServiceInterface {
-  final MockApiService _mockService;
-
-  MockMeetingServiceAdapter(this._mockService);
-
-  @override
-  Future<Response> createMeeting(Map<String, dynamic> meetingData) {
-    return _mockService.createMeeting(meetingData);
-  }
-
-  @override
-  Future<Response> getAllMeetings() {
-    return _mockService.getAllMeetings();
-  }
-
-  @override
-  Future<Response> getMeetingById(String meetingId) {
-    return _mockService.getMeetingById(meetingId);
-  }
-
-  @override
-  Future<Response> getMeetingParticipants(String meetingId) {
-    return _mockService.getMeetingParticipants(meetingId);
-  }
-
-  @override
-  Future<Response> addParticipant(String meetingId, Map<String, dynamic> participantData) {
-    return _mockService.addParticipant(meetingId, participantData);
-  }
-
-  @override
-  Future<Response> removeParticipant(String meetingId, String participantId) {
-    return _mockService.removeParticipant(meetingId, participantId);
-  }
-
-  @override
-  Future<Response> searchMeetingByTitle(String title) {
-    return _mockService.searchMeetingByTitle(title);
-  }
-}
-
-/// Adaptateur pour utiliser MockApiService comme TranscriptionServiceInterface
-class MockTranscriptionServiceAdapter implements TranscriptionServiceInterface {
-  final MockApiService _mockService;
-
-  MockTranscriptionServiceAdapter(this._mockService);
-
-  @override
-  Future<Response> transcribeAudio(FormData audioData) {
-    return _mockService.transcribeAudio(audioData);
-  }
-
-  @override
-  Future<Response> getAllSegments(String meetingId) {
-    return _mockService.getAllSegments(meetingId);
-  }
-
-  @override
-  Future<Response> getSegmentById(String meetingId, String segmentId) {
-    return _mockService.getSegmentById(meetingId, segmentId);
-  }
-
-  @override
-  Future<Response> updateSegmentText(String meetingId, String segmentId, Map<String, dynamic> textData) {
-    return _mockService.updateSegmentText(meetingId, segmentId, textData);
-  }
-
-  @override
-  Future<Response> getSegmentSpeakers(String meetingId, String segmentId) {
-    return _mockService.getSegmentSpeakers(meetingId, segmentId);
-  }
-
-  @override
-  Future<Response> updateSegmentSpeaker(String meetingId, String segmentId, String participantId) {
-    return _mockService.updateSegmentSpeaker(meetingId, segmentId, participantId);
-  }
-
-  @override
-  Future<Response> getRecordFile(String meetingId) {
-    return _mockService.getRecordFile(meetingId);
-  }
-
-  @override
-  Future<Response> getSegmentStartTime(String meetingId, String segmentId) {
-    return _mockService.getSegmentStartTime(meetingId, segmentId);
-  }
-
-  @override
-  Future<Response> getSegmentEndTime(String meetingId, String segmentId) {
-    return _mockService.getSegmentEndTime(meetingId, segmentId);
-  }
-}
+// Mock adapters removed - using real backend only
 
 // ============================================================================
 // ADAPTERS POUR REAL API SERVICES

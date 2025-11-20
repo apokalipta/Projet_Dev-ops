@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:audio_video_progress_bar/audio_video_progress_bar.dart';
-import '../../../../core/data/mock_data.dart';
-import '../../../../core/data/mock_audio_data.dart';
+// Mock data imports removed - using real backend
 import '../providers/audio_player_provider.dart';
 
 /// Écran de lecture d'une réunion avec player audio synchronisé
@@ -43,9 +42,14 @@ class _MeetingPlaybackScreenState extends ConsumerState<MeetingPlaybackScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final meeting = MockData.getMeetingById(widget.meetingId);
-    final segments = MockData.getSegments(widget.meetingId);
-    final hasAudio = MockAudioData.hasAudio(widget.meetingId);
+    // TODO: Fetch from backend API
+    final meeting = widget.meetingId == 'demo-999' 
+      ? {'title': '🎬 Réunion de Démonstration'} 
+      : null; // Will be implemented with backend API
+    final segments = widget.meetingId == 'demo-999' 
+      ? _getDemoSegments() 
+      : <Map<String, dynamic>>[]; // Will be implemented with backend API
+    final hasAudio = widget.meetingId == 'demo-999'; // Demo meeting has audio
     final playerState = ref.watch(audioPlayerNotifierProvider);
 
     if (meeting == null) {
@@ -271,7 +275,7 @@ class _MeetingPlaybackScreenState extends ConsumerState<MeetingPlaybackScreen> {
     bool isCurrentSegment,
     GlobalKey key,
   ) {
-    final speaker = MockData.getParticipantById(segment['speakerId'] as String);
+    final speakerName = segment['speakerName'] as String? ?? 'Inconnu';
     final confidence = segment['confidence'] as double;
     final startTime = segment['startTime'] as double;
     final endTime = segment['endTime'] as double;
@@ -301,33 +305,24 @@ class _MeetingPlaybackScreenState extends ConsumerState<MeetingPlaybackScreen> {
                   children: [
                     // Avatar
                     CircleAvatar(
-                      backgroundImage: NetworkImage(speaker?['avatar'] ?? ''),
                       radius: 20,
+                      child: Text(
+                        speakerName.isNotEmpty ? speakerName[0].toUpperCase() : '?',
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
                     ),
                     const SizedBox(width: 12),
 
-                    // Nom et rôle
+                    // Nom
                     Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            speaker?['name'] ?? 'Inconnu',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              color: isCurrentSegment
-                                  ? Theme.of(context).primaryColor
-                                  : null,
-                            ),
-                          ),
-                          Text(
-                            speaker?['role'] ?? '',
-                            style: const TextStyle(
-                              fontSize: 12,
-                              color: Colors.grey,
-                            ),
-                          ),
-                        ],
+                      child: Text(
+                        speakerName,
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: isCurrentSegment
+                              ? Theme.of(context).primaryColor
+                              : null,
+                        ),
                       ),
                     ),
 
@@ -447,5 +442,101 @@ class _MeetingPlaybackScreenState extends ConsumerState<MeetingPlaybackScreen> {
         alignment: 0.2, // Position à 20% du haut de l'écran
       );
     }
+  }
+
+  /// Segments de démonstration pour la réunion mockée
+  List<Map<String, dynamic>> _getDemoSegments() {
+    return [
+      {
+        'id': 'seg-1',
+        'text': 'Bonjour à tous, merci d\'être présents pour cette réunion de démonstration. Aujourd\'hui, nous allons discuter des fonctionnalités de notre application de transcription.',
+        'startTime': 0.0,
+        'endTime': 8.5,
+        'speakerId': 'p1',
+        'speakerName': 'Alice Martin',
+        'confidence': 0.95,
+      },
+      {
+        'id': 'seg-2',
+        'text': 'Merci Alice. Je suis ravi de participer à cette démonstration. L\'interface utilisateur a l\'air vraiment intuitive.',
+        'startTime': 9.0,
+        'endTime': 15.2,
+        'speakerId': 'p2',
+        'speakerName': 'Bob Dupont',
+        'confidence': 0.92,
+      },
+      {
+        'id': 'seg-3',
+        'text': 'Oui, je suis d\'accord avec Bob. Les fonctionnalités de recherche et d\'édition sont particulièrement impressionnantes. Pouvons-nous voir comment fonctionne la modification des segments ?',
+        'startTime': 15.8,
+        'endTime': 25.3,
+        'speakerId': 'p3',
+        'speakerName': 'Claire Dubois',
+        'confidence': 0.89,
+      },
+      {
+        'id': 'seg-4',
+        'text': 'Bien sûr Claire. Vous pouvez cliquer sur n\'importe quel segment pour l\'éditer. Le système sauvegarde automatiquement vos modifications et vous pouvez également changer le locuteur si l\'IA s\'est trompée.',
+        'startTime': 26.0,
+        'endTime': 36.5,
+        'speakerId': 'p1',
+        'speakerName': 'Alice Martin',
+        'confidence': 0.94,
+      },
+      {
+        'id': 'seg-5',
+        'text': 'C\'est excellent ! Et qu\'en est-il de l\'export en PDF ? J\'ai vu qu\'il y avait un bouton pour télécharger la transcription.',
+        'startTime': 37.2,
+        'endTime': 43.8,
+        'speakerId': 'p2',
+        'speakerName': 'Bob Dupont',
+        'confidence': 0.91,
+      },
+      {
+        'id': 'seg-6',
+        'text': 'Exactement. Le système génère un PDF professionnel avec tous les segments, les locuteurs identifiés, et les horodatages. Vous pouvez également partager la transcription directement depuis l\'application.',
+        'startTime': 44.5,
+        'endTime': 55.0,
+        'speakerId': 'p1',
+        'speakerName': 'Alice Martin',
+        'confidence': 0.96,
+      },
+      {
+        'id': 'seg-7',
+        'text': 'J\'aimerais aussi mentionner la fonctionnalité de lecture audio synchronisée. Quand on clique sur un segment, l\'audio saute directement à ce moment de la réunion. C\'est très pratique pour vérifier le contexte.',
+        'startTime': 55.8,
+        'endTime': 66.2,
+        'speakerId': 'p3',
+        'speakerName': 'Claire Dubois',
+        'confidence': 0.93,
+      },
+      {
+        'id': 'seg-8',
+        'text': 'Absolument. Et n\'oublions pas la fonction de recherche qui permet de trouver rapidement des mots-clés dans toute la transcription. C\'est un gain de temps considérable.',
+        'startTime': 67.0,
+        'endTime': 75.5,
+        'speakerId': 'p1',
+        'speakerName': 'Alice Martin',
+        'confidence': 0.95,
+      },
+      {
+        'id': 'seg-9',
+        'text': 'Pour conclure, je pense que cette application va vraiment faciliter notre travail. La qualité de la transcription est remarquable et l\'interface est très bien pensée.',
+        'startTime': 76.2,
+        'endTime': 85.0,
+        'speakerId': 'p2',
+        'speakerName': 'Bob Dupont',
+        'confidence': 0.90,
+      },
+      {
+        'id': 'seg-10',
+        'text': 'Merci à tous pour vos retours positifs. N\'hésitez pas à tester toutes les fonctionnalités et à nous faire part de vos suggestions d\'amélioration. À bientôt !',
+        'startTime': 85.8,
+        'endTime': 94.5,
+        'speakerId': 'p1',
+        'speakerName': 'Alice Martin',
+        'confidence': 0.97,
+      },
+    ];
   }
 }

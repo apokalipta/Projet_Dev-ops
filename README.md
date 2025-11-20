@@ -1,13 +1,20 @@
-# Projet IA - Application de Gestion de Réunions
+# 🎙️ Meeting App - Application de Gestion de Réunions
 
-Application Flutter pour la gestion de réunions avec transcription automatique et analyse par IA.
+Application Flutter pour la gestion de réunions avec enregistrement audio, transcription automatique et analyse par IA.
+
+## ✨ Fonctionnalités
+
+- 📝 **Création et gestion de réunions**
+- 🎤 **Enregistrement audio en temps réel** (segments de 1min30)
+- 📊 **Transcription automatique** via WhisperX
+- 👥 **Identification des locuteurs** avec Pyannote
+- 🔍 **Analyse IA** des transcriptions
+- 💾 **Stockage local et synchronisation cloud**
+- 🗑️ **Suppression de réunions**
 
 ## 📚 Documentation
 
-- **[DEVELOPPEMENT_LOCAL.md](DEVELOPPEMENT_LOCAL.md)** - Guide de développement local
-- **[API_SPECIFICATION.md](API_SPECIFICATION.md)** - Spécification complète des endpoints API
-- **[INTEGRATION_API.md](INTEGRATION_API.md)** - Guide d'intégration des services API
-- **[lib/src/core/api/README.md](lib/src/core/api/README.md)** - Documentation technique des services API
+- **[INDEX_DOCUMENTATION.md](INDEX_DOCUMENTATION.md)** - Index de la documentation
 
 ## 🚀 Démarrage rapide
 
@@ -50,36 +57,86 @@ lib/
 │       └── transcription/ # Gestion des transcriptions
 ```
 
-## 🔌 Services API
+## 🔌 Services Backend
 
-Les services API sont prêts à être utilisés mais **ne sont pas encore connectés au backend**.
+### Meeting-service (Port 8081)
 
-### Configuration
+Service Quarkus pour la gestion des réunions et participants.
 
-Modifiez l'URL du backend dans `lib/src/core/api/api_config.dart` :
+**Endpoints principaux** :
+- `POST /api/meeting` - Créer une réunion
+- `GET /api/meeting/all` - Liste des réunions
+- `GET /api/meeting/{id}` - Détails d'une réunion
+- `DELETE /api/meeting/{id}` - Supprimer une réunion
+- `POST /api/meeting/{id}/participant` - Ajouter un participant
+- `PUT /api/meeting/{id}/start` - Démarrer une réunion
+- `PUT /api/meeting/{id}/end` - Terminer une réunion
 
-```dart
-static const String devUrl = 'http://votre-backend-url:8080/api';
+### Transcription-service (Port 8082)
+
+Service Quarkus pour la gestion des transcriptions.
+
+**Endpoints principaux** :
+- `POST /api/transcription/{id}/send_segment` - Envoyer un segment audio
+- `GET /api/transcription/{id}/segment/all` - Récupérer tous les segments
+- `PUT /api/transcription/{id}/segment/{segmentId}/locuteur/{participantId}` - Assigner un locuteur
+
+### AI-service (Port 8000)
+
+Service Python FastAPI pour la transcription et l'analyse IA.
+
+**Technologies** :
+- WhisperX (transcription)
+- Pyannote (diarisation des locuteurs)
+- FastAPI (API REST)
+
+## 🐳 Docker
+
+### Démarrer les services
+
+```bash
+# Meeting-service
+cd Projet_Dev-ops-dev-meeting-service
+docker-compose up -d
+
+# Transcription-service + AI-service
+cd Projet_Dev-ops-dev-transcription-service
+docker-compose -f Pull_dock.yaml up -d
 ```
 
-### Utilisation
+### Vérifier les services
 
-```dart
-// Dans un widget
-final meetingService = ref.watch(meetingApiServiceProvider);
-final meetings = await meetingService.getAllMeetings();
+```bash
+docker ps
 ```
 
-Consultez [INTEGRATION_API.md](INTEGRATION_API.md) pour des exemples complets.
+### Voir les logs
+
+```bash
+# Tous les services
+docker-compose logs -f
+
+# Service spécifique
+docker logs -f ai-service
+```
 
 ## 📦 Packages principaux
 
-- **flutter_riverpod** - Gestion d'état
-- **go_router** - Navigation
-- **dio** - Client HTTP
-- **drift** - Base de données locale
-- **freezed** - Classes immuables
-- **json_serializable** - Sérialisation JSON
+### Frontend (Flutter)
+- **flutter_riverpod** (2.6.1) - Gestion d'état
+- **go_router** (14.6.2) - Navigation
+- **dio** (5.7.0) - Client HTTP
+- **record** (5.1.2) - Enregistrement audio
+- **just_audio** (0.9.42) - Lecture audio
+- **freezed** (2.5.7) - Classes immuables
+- **json_serializable** (6.8.0) - Sérialisation JSON
+
+### Backend
+- **Quarkus** (3.15.1) - Framework Java
+- **MySQL** (8.0) - Base de données
+- **FastAPI** - Framework Python
+- **WhisperX** - Transcription audio
+- **Pyannote** - Diarisation des locuteurs
 
 ## 🧪 Tests
 
@@ -101,6 +158,38 @@ flutter build apk
 flutter build ios
 ```
 
+## 🔧 Configuration
+
+### Flutter App
+
+Modifier `lib/src/core/config/app_config.dart` :
+
+```dart
+static const String apiBaseUrl = 'http://localhost:8081/api';
+static const bool debugMode = true;
+```
+
+### Hugging Face Token (pour Pyannote)
+
+1. Créer un compte sur https://huggingface.co
+2. Générer un token : https://huggingface.co/settings/tokens
+3. Accepter les conditions :
+   - https://huggingface.co/pyannote/embedding
+   - https://huggingface.co/pyannote/speaker-diarization-3.1
+4. Ajouter le token dans `Pull_dock.yaml` :
+   ```yaml
+   environment:
+     - HF_TOKEN=hf_xxxxxxxxxxxxxxxxxx
+   ```
+
+## 🚦 Workflow d'enregistrement
+
+1. **Créer une réunion** → Titre, description, nombre de participants
+2. **Définir les participants** → Noms des participants
+3. **Démarrer l'enregistrement** → Segments de 1min30 envoyés automatiquement
+4. **Terminer** → Transcription et analyse IA
+5. **Consulter les résultats** → Transcription avec identification des locuteurs
+
 ## 🤝 Contribution
 
 1. Créer une branche feature
@@ -110,4 +199,4 @@ flutter build ios
 
 ## 📄 Licence
 
-Ce projet est sous licence [à définir].
+Ce projet est un projet académique DevOps.

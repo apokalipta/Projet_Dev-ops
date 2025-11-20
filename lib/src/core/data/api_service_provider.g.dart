@@ -6,12 +6,9 @@ part of 'api_service_provider.dart';
 // RiverpodGenerator
 // **************************************************************************
 
-String _$meetingServiceHash() => r'3e01df050204d9879447d30662aa9c1ae47ba933';
+String _$meetingServiceHash() => r'403a3f4abbfd68d70e15f3435a57c1e1aecdf9e2';
 
-/// Provider qui retourne le service Meeting approprié selon la configuration
-///
-/// - Si `AppConfig.useMockData` est `true`, retourne MockApiService
-/// - Sinon, retourne MeetingApiService (API réelle)
+/// Provider qui retourne le service Meeting (API réelle uniquement)
 ///
 /// Copied from [meetingService].
 @ProviderFor(meetingService)
@@ -30,9 +27,9 @@ final meetingServiceProvider =
 // ignore: unused_element
 typedef MeetingServiceRef = AutoDisposeProviderRef<MeetingServiceInterface>;
 String _$transcriptionServiceHash() =>
-    r'f1cee3b0c5f393b5acb385b912d7817f7501cfec';
+    r'2bde708c7a39c602f0a89b9704b64224ee403dbc';
 
-/// Provider qui retourne le service Transcription approprié selon la configuration
+/// Provider qui retourne le service Transcription (API réelle uniquement)
 ///
 /// Copied from [transcriptionService].
 @ProviderFor(transcriptionService)

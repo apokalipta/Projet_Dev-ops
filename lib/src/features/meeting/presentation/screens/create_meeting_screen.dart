@@ -23,7 +23,6 @@ class _CreateMeetingScreenState extends ConsumerState<CreateMeetingScreen> {
   int? _selectedParticipantCount;
   String? _selectedDuration;
   bool _startTranscription = true;
-  bool _sendReminders = false;
 
   final List<int> _participantOptions = List.generate(20, (index) => index + 1);
   final List<String> _durationOptions = [
@@ -110,7 +109,7 @@ class _CreateMeetingScreenState extends ConsumerState<CreateMeetingScreen> {
     return _selectedDuration ?? '';
   }
 
-  void _submitForm() {
+  Future<void> _submitForm() async {
     if (_formKey.currentState!.validate()) {
       final durationInMinutes = _parseDuration(_getActiveDuration());
 
@@ -122,7 +121,7 @@ class _CreateMeetingScreenState extends ConsumerState<CreateMeetingScreen> {
         description: _descriptionController.text.isEmpty
             ? null
             : _descriptionController.text,
-        status: MeetingStatus.inProgress, // Mettre en cours pour l'enregistrement
+        status: MeetingStatus.scheduled, // Créer en scheduled d'abord
         participants: List.generate(
           _selectedParticipantCount!,
           (index) => Participant(
@@ -131,13 +130,20 @@ class _CreateMeetingScreenState extends ConsumerState<CreateMeetingScreen> {
           ),
         ),
         startTranscription: _startTranscription,
-        sendReminders: _sendReminders,
+        sendReminders: false,
       );
 
-      ref.read(asyncMeetingProvider.notifier).createMeeting(newMeeting);
+      // Créer la réunion sur le backend ET récupérer l'ID généré
+      final createdMeeting = await ref.read(asyncMeetingProvider.notifier).createMeeting(newMeeting);
 
-      // Naviguer vers l'écran d'enregistrement
-      context.go('/meeting-recording/${newMeeting.id}?title=${Uri.encodeComponent(newMeeting.title)}');
+      // Si l'option "Démarrer automatiquement la transcription" est cochée, naviguer vers la définition des participants
+      if (_startTranscription) {
+        // Naviguer vers l'écran de définition des participants avec push pour permettre le retour
+        context.push('/define-participants/${createdMeeting.id}?title=${Uri.encodeComponent(createdMeeting.title)}&count=${_selectedParticipantCount ?? 1}');
+      } else {
+        // Sinon, retourner à la liste des réunions
+        context.pop();
+      }
     }
   }
 
@@ -146,10 +152,6 @@ class _CreateMeetingScreenState extends ConsumerState<CreateMeetingScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Créer une réunion'),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => context.pop(),
-        ),
       ),
       body: LayoutBuilder(
         builder: (context, constraints) {
@@ -493,81 +495,21 @@ class _CreateMeetingScreenState extends ConsumerState<CreateMeetingScreen> {
                 ],
               ),
               const SizedBox(height: 16),
-              if (isSmallScreen)
-                Column(
-                  children: [
-                    CheckboxListTile(
-                      title: const Text(
-                        'Démarrer automatiquement la transcription',
-                        style: TextStyle(fontSize: 13),
-                      ),
-                      value: _startTranscription,
-                      onChanged: (bool? value) {
-                        setState(() {
-                          _startTranscription = value!;
-                        });
-                      },
-                      controlAffinity: ListTileControlAffinity.leading,
-                      contentPadding: EdgeInsets.zero,
-                      dense: true,
-                    ),
-                    CheckboxListTile(
-                      title: const Text(
-                        'Envoyer des rappels aux participants',
-                        style: TextStyle(fontSize: 13),
-                      ),
-                      value: _sendReminders,
-                      onChanged: (bool? value) {
-                        setState(() {
-                          _sendReminders = value!;
-                        });
-                      },
-                      controlAffinity: ListTileControlAffinity.leading,
-                      contentPadding: EdgeInsets.zero,
-                      dense: true,
-                    ),
-                  ],
-                )
-              else
-                Row(
-                  children: [
-                    Expanded(
-                      child: CheckboxListTile(
-                        title: const Text(
-                          'Démarrer automatiquement la transcription',
-                          style: TextStyle(fontSize: 14),
-                        ),
-                        value: _startTranscription,
-                        onChanged: (bool? value) {
-                          setState(() {
-                            _startTranscription = value!;
-                          });
-                        },
-                        controlAffinity: ListTileControlAffinity.leading,
-                        contentPadding: EdgeInsets.zero,
-                        dense: true,
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: CheckboxListTile(
-                        title: const Text(
-                          'Envoyer des rappels aux participants',
-                          style: TextStyle(fontSize: 14),
-                        ),
-                        value: _sendReminders,
-                        onChanged: (bool? value) {
-                          setState(() {
-                            _sendReminders = value!;
-                          });
-                        },
-                        controlAffinity: ListTileControlAffinity.leading,
-                        contentPadding: EdgeInsets.zero,
-                        dense: true,
-                      ),
-                    ),
-                  ],
+              CheckboxListTile(
+                title: const Text(
+                  'Démarrer automatiquement la transcription',
+                  style: TextStyle(fontSize: 14),
                 ),
+                value: _startTranscription,
+                onChanged: (bool? value) {
+                  setState(() {
+                    _startTranscription = value!;
+                  });
+                },
+                controlAffinity: ListTileControlAffinity.leading,
+                contentPadding: EdgeInsets.zero,
+                dense: true,
+              ),
             ],
           ),
         );
@@ -579,20 +521,6 @@ class _CreateMeetingScreenState extends ConsumerState<CreateMeetingScreen> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.end,
       children: [
-        OutlinedButton.icon(
-          onPressed: () => context.pop(),
-          icon: const Icon(Icons.arrow_back, size: 18),
-          label: const Text('Retour'),
-          style: OutlinedButton.styleFrom(
-            foregroundColor: Colors.grey.shade700,
-            side: BorderSide(color: Colors.grey.shade300),
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
-          ),
-        ),
-        const SizedBox(width: 16),
         ElevatedButton.icon(
           onPressed: _submitForm,
           icon: const Icon(Icons.rocket_launch, size: 18),

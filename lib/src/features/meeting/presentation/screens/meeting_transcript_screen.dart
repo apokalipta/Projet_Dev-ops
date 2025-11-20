@@ -7,7 +7,7 @@ import 'package:audio_video_progress_bar/audio_video_progress_bar.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
-import '../../../../core/data/mock_data.dart';
+// Mock data import removed - using real backend
 import '../providers/audio_player_provider.dart';
 
 /// Écran d'affichage de la transcription d'une réunion
@@ -61,7 +61,10 @@ class _MeetingTranscriptScreenState extends ConsumerState<MeetingTranscriptScree
 
   @override
   Widget build(BuildContext context) {
-    final allSegments = MockData.getSegments(widget.meetingId);
+    // TODO: Fetch segments from backend API
+    final allSegments = widget.meetingId == 'demo-999' 
+      ? _getDemoSegments() 
+      : <Map<String, dynamic>>[]; // Will be implemented with backend API
     final audioState = ref.watch(audioPlayerNotifierProvider);
     
     // Filtrer les segments selon la recherche
@@ -161,7 +164,7 @@ class _MeetingTranscriptScreenState extends ConsumerState<MeetingTranscriptScree
           hintText: 'Rechercher un mot ou un interlocuteur...',
           border: InputBorder.none,
         ),
-        style: const TextStyle(color: Colors.white),
+        style: const TextStyle(color: Colors.black),
         onChanged: (value) {
           setState(() {
             _searchQuery = value;
@@ -388,7 +391,8 @@ class _MeetingTranscriptScreenState extends ConsumerState<MeetingTranscriptScree
   /// Télécharger la transcription en PDF
   Future<void> _downloadTranscript() async {
     try {
-      final segments = MockData.getSegments(widget.meetingId);
+      // TODO: Fetch segments from backend API
+      final segments = <Map<String, dynamic>>[]; // Will be implemented with backend API
       
       // Créer le document PDF
       final pdf = pw.Document();
@@ -421,7 +425,6 @@ class _MeetingTranscriptScreenState extends ConsumerState<MeetingTranscriptScree
                 final text = _editedTexts[segment['id']] ?? segment['text'] as String;
                 final startTime = segment['startTime'] as double;
                 final endTime = segment['endTime'] as double;
-                final confidence = segment['confidence'] as double;
                 
                 return pw.Container(
                   margin: const pw.EdgeInsets.only(bottom: 16),
@@ -463,33 +466,6 @@ class _MeetingTranscriptScreenState extends ConsumerState<MeetingTranscriptScree
                           fontSize: 11,
                           lineSpacing: 1.5,
                         ),
-                      ),
-                      
-                      // Badge de confiance
-                      pw.SizedBox(height: 6),
-                      pw.Row(
-                        mainAxisAlignment: pw.MainAxisAlignment.end,
-                        children: [
-                          pw.Container(
-                            padding: const pw.EdgeInsets.symmetric(
-                              horizontal: 6,
-                              vertical: 2,
-                            ),
-                            decoration: pw.BoxDecoration(
-                              color: _getConfidenceColor(confidence),
-                              borderRadius: const pw.BorderRadius.all(
-                                pw.Radius.circular(4),
-                              ),
-                            ),
-                            child: pw.Text(
-                              'Confiance: ${(confidence * 100).toStringAsFixed(0)}%',
-                              style: const pw.TextStyle(
-                                fontSize: 8,
-                                color: PdfColors.white,
-                              ),
-                            ),
-                          ),
-                        ],
                       ),
                     ],
                   ),
@@ -542,19 +518,6 @@ class _MeetingTranscriptScreenState extends ConsumerState<MeetingTranscriptScree
     }
   }
   
-  /// Obtenir la couleur selon le niveau de confiance
-  PdfColor _getConfidenceColor(double confidence) {
-    if (confidence >= 0.95) {
-      return PdfColors.green;
-    } else if (confidence >= 0.90) {
-      return PdfColors.lightGreen;
-    } else if (confidence >= 0.85) {
-      return PdfColors.orange;
-    } else {
-      return PdfColors.red;
-    }
-  }
-  
   /// Télécharger l'audio
   Future<void> _downloadAudio() async {
     try {
@@ -596,7 +559,6 @@ class _MeetingTranscriptScreenState extends ConsumerState<MeetingTranscriptScree
     final displayText = _editedTexts[segmentId] ?? originalText;
     final startTime = segment['startTime'] as double;
     final endTime = segment['endTime'] as double;
-    final confidence = segment['confidence'] as double;
     final isEdited = _editedTexts.containsKey(segmentId);
 
     return Card(
@@ -644,9 +606,6 @@ class _MeetingTranscriptScreenState extends ConsumerState<MeetingTranscriptScree
                       ],
                     ),
                   ),
-                  
-                  // Badge de confiance
-                  _buildConfidenceBadge(confidence),
                   
                   // Icône d'édition si modifié
                   if (isEdited) ...[
@@ -768,50 +727,6 @@ class _MeetingTranscriptScreenState extends ConsumerState<MeetingTranscriptScree
     );
   }
 
-  /// Badge de confiance de la transcription
-  Widget _buildConfidenceBadge(double confidence) {
-    Color color;
-    String label;
-
-    if (confidence >= 0.95) {
-      color = Colors.green;
-      label = 'Excellent';
-    } else if (confidence >= 0.90) {
-      color = Colors.lightGreen;
-      label = 'Très bon';
-    } else if (confidence >= 0.85) {
-      color = Colors.orange;
-      label = 'Bon';
-    } else {
-      color = Colors.red;
-      label = 'Moyen';
-    }
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withOpacity(0.3)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(Icons.verified, size: 12, color: color),
-          const SizedBox(width: 4),
-          Text(
-            '${(confidence * 100).toStringAsFixed(0)}%',
-            style: TextStyle(
-              color: color,
-              fontSize: 11,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   /// Formater le temps en MM:SS
   String _formatTime(double seconds) {
     final duration = Duration(seconds: seconds.toInt());
@@ -831,5 +746,101 @@ class _MeetingTranscriptScreenState extends ConsumerState<MeetingTranscriptScree
     } else {
       return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
     }
+  }
+
+  /// Segments de démonstration pour la réunion mockée
+  List<Map<String, dynamic>> _getDemoSegments() {
+    return [
+      {
+        'id': 'seg-1',
+        'text': 'Bonjour à tous, merci d\'être présents pour cette réunion de démonstration. Aujourd\'hui, nous allons discuter des fonctionnalités de notre application de transcription.',
+        'startTime': 0.0,
+        'endTime': 8.5,
+        'speakerId': 'p1',
+        'speakerName': 'Alice Martin',
+        'confidence': 0.95,
+      },
+      {
+        'id': 'seg-2',
+        'text': 'Merci Alice. Je suis ravi de participer à cette démonstration. L\'interface utilisateur a l\'air vraiment intuitive.',
+        'startTime': 9.0,
+        'endTime': 15.2,
+        'speakerId': 'p2',
+        'speakerName': 'Bob Dupont',
+        'confidence': 0.92,
+      },
+      {
+        'id': 'seg-3',
+        'text': 'Oui, je suis d\'accord avec Bob. Les fonctionnalités de recherche et d\'édition sont particulièrement impressionnantes. Pouvons-nous voir comment fonctionne la modification des segments ?',
+        'startTime': 15.8,
+        'endTime': 25.3,
+        'speakerId': 'p3',
+        'speakerName': 'Claire Dubois',
+        'confidence': 0.89,
+      },
+      {
+        'id': 'seg-4',
+        'text': 'Bien sûr Claire. Vous pouvez cliquer sur n\'importe quel segment pour l\'éditer. Le système sauvegarde automatiquement vos modifications et vous pouvez également changer le locuteur si l\'IA s\'est trompée.',
+        'startTime': 26.0,
+        'endTime': 36.5,
+        'speakerId': 'p1',
+        'speakerName': 'Alice Martin',
+        'confidence': 0.94,
+      },
+      {
+        'id': 'seg-5',
+        'text': 'C\'est excellent ! Et qu\'en est-il de l\'export en PDF ? J\'ai vu qu\'il y avait un bouton pour télécharger la transcription.',
+        'startTime': 37.2,
+        'endTime': 43.8,
+        'speakerId': 'p2',
+        'speakerName': 'Bob Dupont',
+        'confidence': 0.91,
+      },
+      {
+        'id': 'seg-6',
+        'text': 'Exactement. Le système génère un PDF professionnel avec tous les segments, les locuteurs identifiés, et les horodatages. Vous pouvez également partager la transcription directement depuis l\'application.',
+        'startTime': 44.5,
+        'endTime': 55.0,
+        'speakerId': 'p1',
+        'speakerName': 'Alice Martin',
+        'confidence': 0.96,
+      },
+      {
+        'id': 'seg-7',
+        'text': 'J\'aimerais aussi mentionner la fonctionnalité de lecture audio synchronisée. Quand on clique sur un segment, l\'audio saute directement à ce moment de la réunion. C\'est très pratique pour vérifier le contexte.',
+        'startTime': 55.8,
+        'endTime': 66.2,
+        'speakerId': 'p3',
+        'speakerName': 'Claire Dubois',
+        'confidence': 0.93,
+      },
+      {
+        'id': 'seg-8',
+        'text': 'Absolument. Et n\'oublions pas la fonction de recherche qui permet de trouver rapidement des mots-clés dans toute la transcription. C\'est un gain de temps considérable.',
+        'startTime': 67.0,
+        'endTime': 75.5,
+        'speakerId': 'p1',
+        'speakerName': 'Alice Martin',
+        'confidence': 0.95,
+      },
+      {
+        'id': 'seg-9',
+        'text': 'Pour conclure, je pense que cette application va vraiment faciliter notre travail. La qualité de la transcription est remarquable et l\'interface est très bien pensée.',
+        'startTime': 76.2,
+        'endTime': 85.0,
+        'speakerId': 'p2',
+        'speakerName': 'Bob Dupont',
+        'confidence': 0.90,
+      },
+      {
+        'id': 'seg-10',
+        'text': 'Merci à tous pour vos retours positifs. N\'hésitez pas à tester toutes les fonctionnalités et à nous faire part de vos suggestions d\'amélioration. À bientôt !',
+        'startTime': 85.8,
+        'endTime': 94.5,
+        'speakerId': 'p1',
+        'speakerName': 'Alice Martin',
+        'confidence': 0.97,
+      },
+    ];
   }
 }
