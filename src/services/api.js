@@ -267,22 +267,47 @@ class ApiService {
     const formData = new FormData()
     formData.append('file', audioFile)
     
-    console.log('📤 Envoi segment audio:', audioFile.name, 'Taille:', audioFile.size)
-    
     // Pour FormData, ne pas inclure Content-Type, le navigateur le définit automatiquement avec le boundary
     // ENDPOINTS.SEND_SEGMENT retourne déjà l'URL complète (via buildTranscriptionUrl)
     const url = ENDPOINTS.SEND_SEGMENT(meetingId)
+    
+    console.log('📤 Envoi segment audio:', {
+      meetingId: meetingId,
+      fileName: audioFile.name,
+      fileSize: audioFile.size,
+      fileType: audioFile.type,
+      url: url,
+      method: 'POST',
+      contentType: 'multipart/form-data (automatique)'
+    })
     
     try {
       const response = await fetch(url, {
         method: 'POST',
         body: formData
         // Pas de headers Content-Type, le navigateur le définit automatiquement pour FormData
+        // Cela correspond à: curl -X POST ... -F "file=@..."
       })
       
+      // Lire le texte de la réponse d'abord
+      const responseText = await response.text()
+      
+      // Vérifier si c'est du JSON valide
+      let body
       const contentType = response.headers.get('content-type') || ''
       const isJson = contentType.includes('application/json')
-      const body = isJson ? await response.json() : await response.text()
+      
+      if (isJson && responseText.trim()) {
+        try {
+          body = JSON.parse(responseText)
+        } catch (parseError) {
+          // Si le parsing JSON échoue, utiliser le texte (le serveur peut retourner du texte simple)
+          console.log('ℹ️ Réponse texte du serveur:', responseText.substring(0, 100))
+          body = responseText
+        }
+      } else {
+        body = responseText
+      }
       
       if (!response.ok) {
         console.error('❌ Erreur API:', {
@@ -291,11 +316,21 @@ class ApiService {
           url: url,
           body: body
         })
-        throw new ApiError(response.status, body?.message || response.statusText, body)
+        throw new ApiError(response.status, body?.message || response.statusText || body, body)
+      }
+      
+      // Si la réponse est un message texte de succès, retourner un objet
+      if (typeof body === 'string' && response.ok) {
+        console.log('✅ Réponse serveur:', body)
+        return { message: body, success: true }
       }
       
       return body
     } catch (error) {
+      // Si c'est déjà une ApiError, la relancer
+      if (error instanceof ApiError) {
+        throw error
+      }
       console.error('Erreur API:', error)
       throw this.handleError(error)
     }

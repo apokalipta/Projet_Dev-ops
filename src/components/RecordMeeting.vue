@@ -148,6 +148,9 @@
 <script>
 import { apiService } from '../services/api.js'
 
+// Variable pour stocker lamejs une fois chargé
+let lamejsModule = null
+
 export default {
   name: 'RecordMeeting',
   props: {
@@ -170,11 +173,17 @@ export default {
       isProcessing: false,
       recordingTime: 0,
       timerInterval: null,
-      mediaRecorder: null,
       audioChunks: [],
       notes: '',
       stream: null,
-      segmentCounter: 0 // Compteur pour incrémenter les segments
+      segmentCounter: 0, // Compteur pour incrémenter les segments
+      audioContext: null,
+      mediaStreamSource: null,
+      scriptProcessor: null,
+      mp3Encoder: null,
+      mp3Data: [],
+      sampleRate: 44100,
+      numChannels: 1
     }
   },
   computed: {
@@ -233,6 +242,57 @@ export default {
       try {
         this.isProcessing = true
         
+        // Charger lamejs depuis window.lamejs ou via import dynamique
+        if (!lamejsModule) {
+          console.log('🔄 Chargement de lamejs...')
+          
+          // Essayer d'abord window.lamejs (si le bundle est chargé)
+          if (window.lamejs && window.lamejs.Mp3Encoder) {
+            lamejsModule = window.lamejs
+            console.log('✅ lamejs trouvé dans window.lamejs')
+          } else {
+            // Si window.lamejs n'est pas disponible, charger le bundle dynamiquement
+            console.log('⚠️ window.lamejs non disponible, chargement dynamique du bundle...')
+            
+            try {
+              // Charger directement depuis node_modules via fetch
+              console.log('🔄 Chargement du bundle depuis node_modules...')
+              
+              const response = await fetch('/node_modules/lamejs/lame.all.js')
+              if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+              }
+              
+              const code = await response.text()
+              console.log('✅ Code du bundle récupéré, taille:', code.length, 'caractères')
+              
+              // Exécuter le code dans un script
+              const script = document.createElement('script')
+              script.textContent = code
+              document.head.appendChild(script)
+              
+              // Attendre que lamejs soit initialisé (le bundle appelle lamejs() à la fin)
+              let attempts = 0
+              const maxAttempts = 50
+              
+              while (!window.lamejs || !window.lamejs.Mp3Encoder) {
+                if (attempts >= maxAttempts) {
+                  console.error('❌ window.lamejs non défini après', maxAttempts, 'tentatives')
+                  throw new Error('Bundle chargé mais window.lamejs non défini après initialisation')
+                }
+                await new Promise(resolve => setTimeout(resolve, 100))
+                attempts++
+              }
+              
+              lamejsModule = window.lamejs
+              console.log('✅ lamejs chargé depuis node_modules avec succès')
+            } catch (e) {
+              console.error('❌ Erreur lors du chargement du bundle:', e)
+              throw new Error('Impossible de charger lamejs: ' + e.message)
+            }
+          }
+        }
+        
         // Démarrer officiellement la réunion si elle n'est pas déjà en cours
         if (this.meeting.status !== 'in_progress') {
           try {
@@ -254,40 +314,79 @@ export default {
           } 
         })
         
-        // Créer le MediaRecorder
-        this.mediaRecorder = new MediaRecorder(this.stream, {
-          mimeType: 'audio/webm;codecs=opus'
+        // Créer l'AudioContext pour capturer l'audio directement en MP3
+        this.audioContext = new (window.AudioContext || window.webkitAudioContext)({
+          sampleRate: this.sampleRate
         })
         
-        this.mediaRecorder.ondataavailable = (event) => {
-          if (event.data.size > 0) {
-            this.audioChunks.push(event.data)
+        // Créer une source depuis le stream
+        this.mediaStreamSource = this.audioContext.createMediaStreamSource(this.stream)
+        
+        // Créer un ScriptProcessorNode pour capturer les données audio
+        const bufferSize = 4096
+        this.scriptProcessor = this.audioContext.createScriptProcessor(bufferSize, this.numChannels, this.numChannels)
+        
+        // Initialiser l'encodeur MP3
+        if (!lamejsModule || !lamejsModule.Mp3Encoder) {
+          throw new Error('lamejs.Mp3Encoder n\'est pas disponible. Le module n\'a pas été chargé correctement.')
+        }
+        
+        try {
+          this.mp3Encoder = new lamejsModule.Mp3Encoder(this.numChannels, this.sampleRate, 128) // 128 kbps
+        } catch (error) {
+          console.error('Erreur lors de la création de Mp3Encoder:', error)
+          throw new Error('Impossible de créer l\'encodeur MP3: ' + error.message)
+        }
+        this.mp3Data = []
+        this.audioChunks = []
+        
+        // Capturer les données audio et les encoder en MP3
+        let segmentStartTime = Date.now()
+        const segmentInterval = 30000 // 30 secondes
+        
+        this.scriptProcessor.onaudioprocess = (e) => {
+          if (!this.isRecording || this.isPaused) return
+          
+          // Récupérer les données audio
+          const inputData = e.inputBuffer.getChannelData(0)
+          
+          // Convertir Float32Array en Int16Array pour lamejs
+          const samples = new Int16Array(inputData.length)
+          for (let i = 0; i < inputData.length; i++) {
+            const s = Math.max(-1, Math.min(1, inputData[i]))
+            samples[i] = s < 0 ? s * 0x8000 : s * 0x7FFF
+          }
+          
+          // Encoder en MP3 par blocs
+          const sampleBlockSize = 1152
+          for (let i = 0; i < samples.length; i += sampleBlockSize) {
+            const sampleChunk = samples.subarray(i, i + sampleBlockSize)
+            const mp3buf = this.mp3Encoder.encodeBuffer(sampleChunk)
+            if (mp3buf.length > 0) {
+              this.mp3Data.push(mp3buf)
+            }
+          }
+          
+          // Envoyer un segment toutes les 30 secondes
+          const currentTime = Date.now()
+          if (currentTime - segmentStartTime >= segmentInterval) {
+            this.sendMp3Segment()
+            segmentStartTime = currentTime
           }
         }
         
-        this.mediaRecorder.onstop = async () => {
-          await this.saveRecording()
-        }
+        // Connecter les nœuds
+        this.mediaStreamSource.connect(this.scriptProcessor)
+        this.scriptProcessor.connect(this.audioContext.destination)
         
-        // Démarrer l'enregistrement - Capturer les données toutes les 1min30 (90 secondes)
-        // pour envoyer des segments au service de transcription
-        this.mediaRecorder.start(90000) // 90 secondes (1min30) par segment
         this.isRecording = true
         this.isPaused = false
-        this.segmentCounter = 0 // Réinitialiser le compteur
-        
-        // Envoyer les segments au service de transcription automatiquement
-        this.mediaRecorder.addEventListener('dataavailable', async (event) => {
-          if (event.data.size > 0 && this.isRecording) {
-            this.segmentCounter++ // Incrémenter le compteur de segments
-            await this.sendSegmentToTranscription(event.data)
-          }
-        })
+        this.segmentCounter = 0
         
         // Démarrer le timer
         this.startTimer()
         
-        console.log('🎙️ Enregistrement démarré avec envoi automatique des segments')
+        console.log('🎙️ Enregistrement MP3 démarré avec envoi automatique des segments toutes les 30 secondes')
       } catch (error) {
         console.error('Erreur lors du démarrage de l\'enregistrement:', error)
         alert('❌ Impossible d\'accéder au microphone. Vérifiez les permissions.')
@@ -296,15 +395,42 @@ export default {
       }
     },
     
-    async sendSegmentToTranscription(audioBlob) {
+    sendMp3Segment() {
+      if (this.mp3Data.length === 0) return
+      
+      // Finaliser l'encodage du segment
+      const mp3buf = this.mp3Encoder.flush()
+      if (mp3buf.length > 0) {
+        this.mp3Data.push(mp3buf)
+      }
+      
+      // Créer un blob MP3
+      const mp3Blob = new Blob(this.mp3Data, { type: 'audio/mpeg' })
+      
+      // Sauvegarder pour l'enregistrement complet
+      this.audioChunks.push(mp3Blob)
+      
+      // Envoyer le segment
+      this.segmentCounter++
+      this.sendSegmentToTranscription(mp3Blob).catch(err => {
+        console.error('❌ Erreur lors de l\'envoi du segment:', err)
+      })
+      
+      // Réinitialiser pour le prochain segment
+      this.mp3Data = []
+      if (lamejsModule) {
+        this.mp3Encoder = new lamejsModule.Mp3Encoder(this.numChannels, this.sampleRate, 128)
+      }
+    },
+    
+    async sendSegmentToTranscription(mp3Blob) {
       try {
-        // Créer un fichier à partir du blob avec numéro de segment incrémenté
         const timestamp = Date.now()
         const segmentNumber = this.segmentCounter.toString().padStart(3, '0') // Format: 001, 002, 003...
-        const fileName = `segment_${this.meetingId}_${segmentNumber}_${timestamp}.webm`
-        const audioFile = new File([audioBlob], fileName, { type: 'audio/webm' })
+        const fileName = `segment_${this.meetingId}_${segmentNumber}_${timestamp}.mp3`
+        const audioFile = new File([mp3Blob], fileName, { type: 'audio/mpeg' })
         
-        console.log(`📤 Envoi segment #${this.segmentCounter} audio pour transcription:`, fileName, (audioBlob.size / 1024).toFixed(2), 'KB')
+        console.log(`📤 Envoi segment #${this.segmentCounter} audio (MP3) pour transcription:`, fileName, (mp3Blob.size / 1024).toFixed(2), 'KB')
         
         // Envoyer au service de transcription
         await apiService.sendAudioSegment(this.meetingId, audioFile)
@@ -316,8 +442,7 @@ export default {
     },
     
     pauseRecording() {
-      if (this.mediaRecorder && this.mediaRecorder.state === 'recording') {
-        this.mediaRecorder.pause()
+      if (this.isRecording && !this.isPaused) {
         this.isPaused = true
         this.stopTimer()
         console.log('⏸️ Enregistrement en pause')
@@ -325,8 +450,7 @@ export default {
     },
     
     resumeRecording() {
-      if (this.mediaRecorder && this.mediaRecorder.state === 'paused') {
-        this.mediaRecorder.resume()
+      if (this.isRecording && this.isPaused) {
         this.isPaused = false
         this.startTimer()
         console.log('▶️ Enregistrement repris')
@@ -334,16 +458,35 @@ export default {
     },
     
     async stopRecording() {
-      if (this.mediaRecorder && (this.mediaRecorder.state === 'recording' || this.mediaRecorder.state === 'paused')) {
+      if (this.isRecording || this.isPaused) {
         this.isProcessing = true
-        this.mediaRecorder.stop()
-        this.stopTimer()
         this.isRecording = false
         this.isPaused = false
+        this.stopTimer()
+        
+        // Finaliser le dernier segment
+        if (this.mp3Data.length > 0) {
+          this.sendMp3Segment()
+        }
+        
+        // Nettoyer les ressources audio
+        if (this.scriptProcessor) {
+          this.scriptProcessor.disconnect()
+          this.scriptProcessor = null
+        }
+        if (this.mediaStreamSource) {
+          this.mediaStreamSource.disconnect()
+          this.mediaStreamSource = null
+        }
+        if (this.audioContext) {
+          await this.audioContext.close()
+          this.audioContext = null
+        }
+        
         console.log(`⏹️ Enregistrement arrêté (${this.segmentCounter} segment(s) envoyé(s))`)
         
-        // Réinitialiser le compteur pour le prochain enregistrement
-        this.segmentCounter = 0
+        // Sauvegarder l'enregistrement complet
+        await this.saveRecording()
         
         // Passer automatiquement la réunion en "completed" après l'arrêt de l'enregistrement
         await this.autoEndMeeting()
@@ -352,19 +495,36 @@ export default {
     
     async saveRecording() {
       try {
-        const audioBlob = new Blob(this.audioChunks, { type: 'audio/webm' })
+        // Fusionner tous les segments MP3 en un seul fichier
+        const mp3Blob = new Blob(this.audioChunks, { type: 'audio/mpeg' })
         
-        // Créer un fichier
-        const fileName = `recording_${this.meetingId}_${Date.now()}.webm`
-        const audioFile = new File([audioBlob], fileName, { type: 'audio/webm' })
+        // Créer un fichier MP3
+        const fileName = `recording_${this.meetingId}_${Date.now()}.mp3`
+        const audioFile = new File([mp3Blob], fileName, { type: 'audio/mpeg' })
         
-        console.log('💾 Sauvegarde enregistrement complet:', fileName, 'Taille:', (audioBlob.size / 1024 / 1024).toFixed(2), 'MB')
+        console.log('💾 Sauvegarde enregistrement complet (MP3):', fileName, 'Taille:', (mp3Blob.size / 1024 / 1024).toFixed(2), 'MB')
         
         // Envoyer le fichier audio complet au service de transcription
         try {
           await apiService.saveRecordFile(this.meetingId, audioFile)
           console.log('✅ Fichier audio complet sauvegardé sur le serveur')
-          alert(`✅ Enregistrement sauvegardé (${(audioBlob.size / 1024 / 1024).toFixed(2)} MB)`)
+          
+          // Si aucun segment n'a été envoyé pendant l'enregistrement, 
+          // déclencher la transcription du fichier complet
+          if (this.segmentCounter === 0) {
+            console.log('🔄 Aucun segment envoyé, déclenchement de la transcription du fichier complet...')
+            try {
+              const recordFileName = fileName
+              await apiService.startTranscription(this.meetingId, {
+                recordFileName: recordFileName
+              })
+              console.log('✅ Transcription du fichier complet déclenchée')
+            } catch (transcriptionError) {
+              console.warn('⚠️ Erreur lors du déclenchement de la transcription:', transcriptionError)
+            }
+          }
+          
+          alert(`✅ Enregistrement sauvegardé (${(mp3Blob.size / 1024 / 1024).toFixed(2)} MB)${this.segmentCounter === 0 ? '. Transcription en cours...' : ''}`)
         } catch (error) {
           console.error('❌ Erreur lors de la sauvegarde sur le serveur:', error)
           alert('⚠️ Enregistrement local réussi, mais échec de l\'envoi au serveur')
@@ -372,6 +532,7 @@ export default {
         
         // Réinitialiser
         this.audioChunks = []
+        this.mp3Data = []
       } catch (error) {
         console.error('Erreur lors de la sauvegarde:', error)
         alert('❌ Erreur lors de la sauvegarde de l\'enregistrement')
@@ -401,9 +562,23 @@ export default {
         this.stream = null
       }
       
-      if (this.mediaRecorder && this.mediaRecorder.state !== 'inactive') {
-        this.mediaRecorder.stop()
+      if (this.scriptProcessor) {
+        this.scriptProcessor.disconnect()
+        this.scriptProcessor = null
       }
+      
+      if (this.mediaStreamSource) {
+        this.mediaStreamSource.disconnect()
+        this.mediaStreamSource = null
+      }
+      
+      if (this.audioContext) {
+        this.audioContext.close().catch(console.error)
+        this.audioContext = null
+      }
+      
+      this.mp3Data = []
+      this.mp3Encoder = null
     },
     
     async autoEndMeeting() {
