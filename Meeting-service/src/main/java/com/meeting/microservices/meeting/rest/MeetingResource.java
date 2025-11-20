@@ -50,9 +50,23 @@ public class MeetingResource {
     }
 
     @GET
+    @Path("/search/byTitle")
+    public List<MeetingResponse> searchByTitle(@QueryParam("title") String title) {
+        return meetingService.searchByTitle(title);
+    }
+
+    @GET
     @Path("/{meetingId}")
     public MeetingResponse getMeetingById(@PathParam("meetingId") Long meetingId) {
         return meetingService.getMeetingById(meetingId);
+    }
+
+    @DELETE
+    @Path("/{meetingId}")
+    @Transactional
+    public Response deleteMeeting(@PathParam("meetingId") Long meetingId) {
+        meetingService.deleteMeeting(meetingId);
+        return Response.noContent().build();
     }
 
     @GET
@@ -92,11 +106,5 @@ public class MeetingResource {
     @Transactional
     public MeetingResponse endMeeting(@PathParam("meetingId") Long meetingId) {
         return meetingService.endMeeting(meetingId);
-    }
-
-    @GET
-    @Path("/search/byTitle")
-    public List<MeetingResponse> searchByTitle(@QueryParam("title") String title) {
-        return meetingService.searchByTitle(title);
     }
 }

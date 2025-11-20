@@ -209,6 +209,21 @@ public class MeetingService {
         return toResponse(meeting);
     }
 
+    @Transactional
+    public void deleteMeeting(Long meetingId) {
+        Meeting meeting = Optional.ofNullable(meetingRepository.findById(meetingId))
+                .orElseThrow(() -> notFound(RESOURCE_MEETING, meetingId));
+        
+        // Nettoyer les relations avec les participants avant de supprimer
+        // (JPA s'occupe automatiquement de la table de jointure meeting_participant)
+        meeting.getParticipants().clear();
+        meetingRepository.flush();
+        
+        // Supprimer la réunion de la base de données
+        meetingRepository.delete(meeting);
+        meetingRepository.flush();
+    }
+
     private Participant resolveParticipant(ParticipantRequest request) {
         if (request == null) {
             throw new WebApplicationException("Participant payload is required", Response.Status.BAD_REQUEST);
