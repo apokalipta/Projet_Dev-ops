@@ -77,10 +77,14 @@
               v-for="meeting in meetings" 
               :key="meeting.id"
               class="meeting-card"
+              :class="{ 'meeting-completed': meeting.status === 'completed' }"
               @click="viewMeeting(meeting.id)"
             >
               <div class="meeting-card-header">
                 <div class="meeting-status-badge" :class="`status-${meeting.status}`">
+                  <svg v-if="meeting.status === 'completed'" class="status-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M20 6L9 17l-5-5"/>
+                  </svg>
                   {{ getStatusLabel(meeting.status) }}
                 </div>
               </div>
@@ -451,6 +455,44 @@ export default {
 .status-completed {
   background: #e8f5e9;
   color: #388e3c;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.status-icon {
+  width: 14px;
+  height: 14px;
+}
+
+.meeting-completed {
+  opacity: 0.85;
+  position: relative;
+  border: 2px solid #c8e6c9;
+}
+
+.meeting-completed::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(135deg, rgba(56, 142, 60, 0.05) 0%, rgba(200, 230, 201, 0.1) 100%);
+  pointer-events: none;
+  border-radius: 12px;
+}
+
+.meeting-completed .meeting-card-title {
+  color: #4caf50;
+  position: relative;
+}
+
+.meeting-completed .meeting-card-title::after {
+  content: '✓';
+  margin-left: 0.5rem;
+  color: #388e3c;
+  font-weight: bold;
 }
 
 .status-cancelled {

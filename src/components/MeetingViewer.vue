@@ -2,7 +2,7 @@
   <div class="meeting-viewer">
     <div class="viewer-container">
       <!-- En-tête avec les informations de la réunion -->
-      <div class="meeting-header">
+      <div class="meeting-header" :class="{ 'meeting-header-completed': meeting.status === 'completed' }">
         <h1 class="meeting-title">
           <svg class="meeting-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
@@ -11,9 +11,15 @@
             <line x1="3" y1="10" x2="21" y2="10"/>
           </svg>
           {{ meeting.title }}
+          <svg v-if="meeting.status === 'completed'" class="completed-check-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+            <path d="M20 6L9 17l-5-5"/>
+          </svg>
         </h1>
         <div class="meeting-meta">
           <span class="meeting-status status-badge" :class="`status-${meeting.status}`">
+            <svg v-if="meeting.status === 'completed'" class="status-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M20 6L9 17l-5-5"/>
+            </svg>
             {{ getStatusLabel(meeting.status) }}
           </span>
           <span class="meeting-date">{{ formatDate(meeting.scheduledAt) }}</span>
@@ -49,9 +55,9 @@
           {{ isEnding ? 'Clôture...' : 'Clore la réunion' }}
         </button>
         <button 
+          v-if="meeting.status !== 'completed'"
           @click="manageParticipants" 
           class="btn btn-secondary"
-          :disabled="meeting.status === 'completed'"
         >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
@@ -61,6 +67,12 @@
           </svg>
           Gérer les participants
         </button>
+        <div v-if="meeting.status === 'completed'" class="completed-message">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M20 6L9 17l-5-5"/>
+          </svg>
+          <span>Cette réunion est terminée. Aucune action n'est disponible.</span>
+        </div>
       </div>
 
       <!-- Contrôles de lecture (affichés seulement si audio disponible) -->
@@ -163,12 +175,54 @@
             }"
             @click="seekTo(segment.timeDepart || segment.startTime)"
           >
-            <div class="segment-speaker">
-              {{ getSpeakerName(getSegmentSpeakerId(segment)) }}
+            <div class="segment-header">
+              <div class="segment-speaker" @click.stop="showSpeakerSelector(segment)">
+                <span v-if="getSegmentSpeakerId(segment)" class="speaker-name">
+                  {{ getSpeakerName(getSegmentSpeakerId(segment)) }}
+                </span>
+                <span v-else class="speaker-name unassigned">
+                  <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"/>
+                    <line x1="12" y1="8" x2="12" y2="12"/>
+                    <line x1="12" y1="16" x2="12.01" y2="16"/>
+                  </svg>
+                  Non attribué
+                </span>
+                <svg class="edit-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                  <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                </svg>
+              </div>
+              <div class="segment-time">
+                {{ formatTime(segment.timeDepart || segment.startTime) }}
+              </div>
             </div>
             <div class="segment-text" v-html="highlightKeyword(segment.texte || segment.text)"></div>
-            <div class="segment-time">
-              {{ formatTime(segment.timeDepart || segment.startTime) }}
+            
+            <!-- Menu de sélection de locuteur -->
+            <div v-if="selectedSegmentForEdit?.id === segment.id" class="speaker-selector">
+              <div class="selector-header">
+                <span>Attribuer à :</span>
+                <button @click.stop="closeSpeakerSelector" class="close-btn">×</button>
+              </div>
+              <div class="participant-list">
+                <button
+                  v-for="participant in meeting.participants"
+                  :key="participant.id"
+                  @click.stop="assignSpeaker(segment, participant.id)"
+                  class="participant-btn"
+                  :class="{ active: getSegmentSpeakerId(segment) === participant.id }"
+                >
+                  {{ participant.fullName }}
+                </button>
+                <button
+                  @click.stop="removeSpeakerAssignment(segment)"
+                  class="participant-btn remove-btn"
+                  v-if="getSegmentSpeakerId(segment)"
+                >
+                  Retirer l'attribution
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -233,7 +287,9 @@ export default {
       isLoading: true,
       error: null,
       isStarting: false,
-      isEnding: false
+      isEnding: false,
+      selectedSegmentForEdit: null,
+      isAssigningSpeaker: false
     }
   },
 
@@ -290,8 +346,22 @@ export default {
       this.error = null
       
       try {
+        // Vider le cache pour cette réunion spécifique pour avoir les données à jour
+        try {
+          const { cacheService } = await import('../services/cacheService.js')
+          const { ENDPOINTS } = await import('../config/api.js')
+          const meetingUrl = ENDPOINTS.GET_MEETING(this.meetingId)
+          const cacheKey = `GET:${meetingUrl}`
+          await cacheService.delete(cacheKey)
+          console.log('🗑️ Cache vidé pour la réunion:', this.meetingId, 'Clé:', cacheKey)
+        } catch (cacheError) {
+          console.warn('⚠️ Erreur lors du vidage du cache:', cacheError)
+        }
+        
         // Charger les données de la réunion depuis l'API
         const meetingResponse = await apiService.getMeetingById(this.meetingId)
+        console.log('📥 Réponse API réunion:', meetingResponse)
+        console.log('📊 Statut de la réunion:', meetingResponse?.status)
         
         // Charger les segments de transcription depuis le service de transcription
         let segments = []
@@ -304,10 +374,18 @@ export default {
           segments = meetingResponse?.segments || []
         }
         
+        // Préserver explicitement le statut de la réunion
+        const meetingStatus = meetingResponse?.status || 'scheduled'
+        console.log('✅ Statut préservé:', meetingStatus)
+        
         this.meeting = {
           ...meetingResponse,
+          status: meetingStatus, // S'assurer que le statut est explicitement défini
           segments: segments
         }
+        
+        console.log('📋 Meeting final:', this.meeting)
+        console.log('📊 Statut final du meeting:', this.meeting.status)
         
         // Charger les participants
         try {
@@ -450,8 +528,68 @@ export default {
     },
 
     getSpeakerName(speakerId) {
+      if (!speakerId) return 'Non attribué'
       const speaker = this.meeting.participants.find(p => p.id === speakerId)
       return speaker ? speaker.fullName : `Locuteur ${speakerId}`
+    },
+    
+    showSpeakerSelector(segment) {
+      if (this.selectedSegmentForEdit?.id === segment.id) {
+        this.selectedSegmentForEdit = null
+      } else {
+        this.selectedSegmentForEdit = segment
+      }
+    },
+    
+    closeSpeakerSelector() {
+      this.selectedSegmentForEdit = null
+    },
+    
+    async assignSpeaker(segment, participantId) {
+      if (this.isAssigningSpeaker) return
+      
+      this.isAssigningSpeaker = true
+      try {
+        await apiService.updateSegmentSpeaker(this.meetingId, segment.id, participantId)
+        
+        // Mettre à jour le segment localement
+        const segmentIndex = this.meeting.segments.findIndex(s => s.id === segment.id)
+        if (segmentIndex !== -1) {
+          this.meeting.segments[segmentIndex].locuteurId = participantId
+          this.meeting.segments[segmentIndex].locuteur = { id: participantId }
+        }
+        
+        this.selectedSegmentForEdit = null
+        console.log('✅ Locuteur attribué avec succès')
+      } catch (error) {
+        console.error('❌ Erreur lors de l\'attribution du locuteur:', error)
+        alert('Erreur lors de l\'attribution : ' + (error?.message || 'Erreur inconnue'))
+      } finally {
+        this.isAssigningSpeaker = false
+      }
+    },
+    
+    async removeSpeakerAssignment(segment) {
+      if (this.isAssigningSpeaker) return
+      
+      this.isAssigningSpeaker = true
+      try {
+        // Pour retirer l'attribution, on peut soit envoyer null, soit utiliser un endpoint spécifique
+        // Pour l'instant, on met simplement à jour localement
+        const segmentIndex = this.meeting.segments.findIndex(s => s.id === segment.id)
+        if (segmentIndex !== -1) {
+          this.meeting.segments[segmentIndex].locuteurId = null
+          this.meeting.segments[segmentIndex].locuteur = null
+        }
+        
+        this.selectedSegmentForEdit = null
+        console.log('✅ Attribution retirée')
+      } catch (error) {
+        console.error('❌ Erreur lors de la suppression de l\'attribution:', error)
+        alert('Erreur lors de la suppression : ' + (error?.message || 'Erreur inconnue'))
+      } finally {
+        this.isAssigningSpeaker = false
+      }
     },
 
     formatDate(dateString) {
@@ -579,6 +717,34 @@ export default {
 .status-completed {
   background: #e8f5e9;
   color: #388e3c;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.status-icon {
+  width: 14px;
+  height: 14px;
+}
+
+.meeting-header-completed {
+  background: linear-gradient(135deg, rgba(232, 245, 233, 0.3) 0%, rgba(200, 230, 201, 0.2) 100%);
+  border: 2px solid #c8e6c9;
+  border-radius: 12px;
+  padding: 2rem;
+  margin-bottom: 2rem;
+}
+
+.meeting-header-completed .meeting-title {
+  color: #388e3c;
+}
+
+.completed-check-icon {
+  width: 1.2em;
+  height: 1.2em;
+  color: #4caf50;
+  margin-left: 0.5rem;
+  vertical-align: middle;
 }
 
 .status-cancelled {
@@ -590,8 +756,27 @@ export default {
   display: flex;
   gap: 1rem;
   justify-content: center;
+  align-items: center;
   margin-bottom: 2rem;
   flex-wrap: wrap;
+}
+
+.completed-message {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem 1.5rem;
+  background: #e8f5e9;
+  color: #388e3c;
+  border-radius: 8px;
+  font-weight: 500;
+  border: 2px solid #c8e6c9;
+}
+
+.completed-message svg {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
 }
 
 .btn-danger {
@@ -849,13 +1034,55 @@ export default {
   transform: translateX(4px);
 }
 
+.segment-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
 .segment-speaker {
   font-weight: 600;
-  margin-bottom: 0.5rem;
   color: #2c3e50;
   display: flex;
   align-items: center;
   gap: 0.5rem;
+  cursor: pointer;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  transition: all 0.2s;
+  user-select: none;
+}
+
+.segment-speaker:hover {
+  background-color: rgba(52, 152, 219, 0.1);
+}
+
+.speaker-name {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.speaker-name.unassigned {
+  color: #e74c3c;
+  font-style: italic;
+}
+
+.speaker-name.unassigned .icon {
+  width: 14px;
+  height: 14px;
+}
+
+.edit-icon {
+  width: 14px;
+  height: 14px;
+  opacity: 0.5;
+  transition: opacity 0.2s;
+}
+
+.segment-speaker:hover .edit-icon {
+  opacity: 1;
 }
 
 .segment-speaker::before {
@@ -889,7 +1116,105 @@ export default {
 .segment-time {
   font-size: 0.8rem;
   color: #7f8c8d;
-  text-align: right;
+  font-weight: 500;
+}
+
+.speaker-selector {
+  margin-top: 0.75rem;
+  padding: 1rem;
+  background: #f8f9fa;
+  border: 2px solid #3498db;
+  border-radius: 8px;
+  animation: slideDown 0.2s ease-out;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.selector-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.75rem;
+  font-weight: 600;
+  color: #2c3e50;
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  color: #7f8c8d;
+  cursor: pointer;
+  padding: 0;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: all 0.2s;
+}
+
+.close-btn:hover {
+  background-color: rgba(0, 0, 0, 0.1);
+  color: #2c3e50;
+}
+
+.participant-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.participant-btn {
+  padding: 0.75rem 1rem;
+  border: 2px solid #e5e7eb;
+  border-radius: 6px;
+  background: white;
+  cursor: pointer;
+  text-align: left;
+  font-size: 0.95rem;
+  color: #2c3e50;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.participant-btn:hover {
+  background-color: #f3f4f6;
+  border-color: #3498db;
+}
+
+.participant-btn.active {
+  background-color: #e8f4fd;
+  border-color: #3498db;
+  font-weight: 600;
+}
+
+.participant-btn.active::before {
+  content: '✓';
+  color: #3498db;
+  font-weight: bold;
+}
+
+.participant-btn.remove-btn {
+  border-color: #e74c3c;
+  color: #e74c3c;
+}
+
+.participant-btn.remove-btn:hover {
+  background-color: #fde8e8;
+  border-color: #c0392b;
 }
 
 .action-buttons {

@@ -233,6 +233,18 @@ export default {
       try {
         this.isProcessing = true
         
+        // Démarrer officiellement la réunion si elle n'est pas déjà en cours
+        if (this.meeting.status !== 'in_progress') {
+          try {
+            await apiService.startMeeting(this.meetingId)
+            this.meeting.status = 'in_progress'
+            console.log('✅ Réunion démarrée officiellement')
+          } catch (error) {
+            console.warn('⚠️ Impossible de démarrer la réunion (peut-être déjà démarrée):', error)
+            // Continuer même si le démarrage échoue (la réunion est peut-être déjà démarrée)
+          }
+        }
+        
         // Demander l'accès au microphone
         this.stream = await navigator.mediaDevices.getUserMedia({ 
           audio: {
@@ -402,7 +414,12 @@ export default {
         await apiService.endMeeting(this.meetingId)
         console.log('✅ Réunion automatiquement passée en "terminée"')
       } catch (error) {
-        console.error('⚠️ Erreur lors du passage automatique en terminée:', error)
+        // Ignorer l'erreur 409 si la réunion est déjà terminée ou n'a pas été démarrée
+        if (error?.status === 409) {
+          console.log('ℹ️ La réunion est déjà terminée ou n\'a pas été démarrée')
+        } else {
+          console.error('⚠️ Erreur lors du passage automatique en terminée:', error)
+        }
         // Ne pas afficher d'alerte pour ne pas perturber l'utilisateur
       }
     },

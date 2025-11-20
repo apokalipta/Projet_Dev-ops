@@ -269,11 +269,36 @@ class ApiService {
     
     console.log('📤 Envoi segment audio:', audioFile.name, 'Taille:', audioFile.size)
     
-    return this.request(ENDPOINTS.SEND_SEGMENT(meetingId), {
-      method: 'POST',
-      body: formData
-      // Pas de Content-Type header, le navigateur le définit automatiquement pour FormData
-    })
+    // Pour FormData, ne pas inclure Content-Type, le navigateur le définit automatiquement avec le boundary
+    // ENDPOINTS.SEND_SEGMENT retourne déjà l'URL complète (via buildTranscriptionUrl)
+    const url = ENDPOINTS.SEND_SEGMENT(meetingId)
+    
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        body: formData
+        // Pas de headers Content-Type, le navigateur le définit automatiquement pour FormData
+      })
+      
+      const contentType = response.headers.get('content-type') || ''
+      const isJson = contentType.includes('application/json')
+      const body = isJson ? await response.json() : await response.text()
+      
+      if (!response.ok) {
+        console.error('❌ Erreur API:', {
+          status: response.status,
+          statusText: response.statusText,
+          url: url,
+          body: body
+        })
+        throw new ApiError(response.status, body?.message || response.statusText, body)
+      }
+      
+      return body
+    } catch (error) {
+      console.error('Erreur API:', error)
+      throw this.handleError(error)
+    }
   }
 
   /**
@@ -355,12 +380,68 @@ class ApiService {
     const formData = new FormData()
     formData.append('file', audioFile)
     
-    console.log('💾 Sauvegarde fichier audio complet:', audioFile.name)
+    console.log('💾 Sauvegarde fichier audio complet:', audioFile.name, 'Taille:', audioFile.size)
     
-    return this.request(ENDPOINTS.SAVE_RECORD_FILE(meetingId), {
-      method: 'POST',
-      body: formData
-    })
+    // Pour FormData, ne pas inclure Content-Type, le navigateur le définit automatiquement avec le boundary
+    // ENDPOINTS.SAVE_RECORD_FILE retourne déjà l'URL complète (via buildTranscriptionUrl)
+    const url = ENDPOINTS.SAVE_RECORD_FILE(meetingId)
+    
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        body: formData
+        // Pas de headers Content-Type, le navigateur le définit automatiquement pour FormData
+      })
+      
+      // Gérer le parsing de la réponse de manière robuste
+      let body
+      const contentType = response.headers.get('content-type') || ''
+      const isJson = contentType.includes('application/json')
+      
+      if (isJson) {
+        try {
+          const text = await response.text()
+          // Si la réponse est vide, retourner null
+          if (!text || text.trim() === '') {
+            body = null
+          } else {
+            // Essayer de parser en JSON, sinon utiliser le texte brut
+            try {
+              body = JSON.parse(text)
+            } catch (parseError) {
+              // Le backend a dit JSON mais a renvoyé du texte brut
+              console.warn('⚠️ Content-Type indique JSON mais le contenu est du texte brut:', text)
+              body = { message: text, success: true }
+            }
+          }
+        } catch (error) {
+          console.warn('⚠️ Erreur lors de la lecture de la réponse:', error)
+          body = null
+        }
+      } else {
+        // Content-Type n'est pas JSON, lire comme texte
+        body = await response.text()
+      }
+      
+      if (!response.ok) {
+        console.error('❌ Erreur API:', {
+          status: response.status,
+          statusText: response.statusText,
+          url: url,
+          body: body
+        })
+        throw new ApiError(response.status, body?.message || response.statusText, body)
+      }
+      
+      return body
+    } catch (error) {
+      // Si c'est déjà une ApiError, la relancer telle quelle
+      if (error instanceof ApiError) {
+        throw error
+      }
+      console.error('Erreur API:', error)
+      throw this.handleError(error)
+    }
   }
 
   /**
