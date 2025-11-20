@@ -395,17 +395,78 @@ export default {
       }
     },
     
-    sendMp3Segment() {
-      if (this.mp3Data.length === 0) return
+    async sendMp3Segment() {
+      if (this.mp3Data.length === 0 && !this.mp3Encoder) {
+        console.warn('⚠️ Aucune donnée MP3 et pas d\'encodeur disponible')
+        return
+      }
       
-      // Finaliser l'encodage du segment
-      const mp3buf = this.mp3Encoder.flush()
-      if (mp3buf.length > 0) {
+      // Finaliser l'encodage du segment - appeler flush() plusieurs fois pour s'assurer que tout est vidé
+      let mp3buf = this.mp3Encoder.flush()
+      let flushCount = 0
+      while (mp3buf.length > 0 && flushCount < 10) { // Limiter à 10 flush pour éviter une boucle infinie
         this.mp3Data.push(mp3buf)
+        mp3buf = this.mp3Encoder.flush()
+        flushCount++
+      }
+      
+      // Vérifier qu'on a des données à envoyer
+      if (this.mp3Data.length === 0) {
+        console.warn('⚠️ Aucune donnée MP3 à envoyer pour ce segment après flush')
+        return
+      }
+      
+      // Calculer la taille totale des données
+      let totalSize = 0
+      for (const chunk of this.mp3Data) {
+        totalSize += chunk.length
+      }
+      
+      // Vérifier qu'on a une taille minimale (un MP3 valide doit avoir au moins quelques centaines d'octets)
+      if (totalSize < 100) {
+        console.warn(`⚠️ Segment MP3 trop petit (${totalSize} octets), ignoré. Un MP3 valide doit avoir au moins 100 octets.`)
+        this.mp3Data = []
+        return
       }
       
       // Créer un blob MP3
       const mp3Blob = new Blob(this.mp3Data, { type: 'audio/mpeg' })
+      
+      // Vérifier que le blob n'est pas vide
+      if (mp3Blob.size === 0) {
+        console.warn('⚠️ Blob MP3 vide après création, segment ignoré')
+        this.mp3Data = []
+        return
+      }
+      
+      // Vérifier que la taille du blob correspond à la taille calculée
+      if (mp3Blob.size !== totalSize) {
+        console.warn(`⚠️ Taille du blob (${mp3Blob.size}) ne correspond pas à la taille calculée (${totalSize})`)
+      }
+      
+      // Valider que c'est un MP3 valide en vérifiant les premiers octets (header MP3)
+      try {
+        const arrayBuffer = await mp3Blob.slice(0, 4).arrayBuffer()
+        const uint8Array = new Uint8Array(arrayBuffer)
+        
+        // Vérifier les signatures MP3 communes :
+        // - ID3v2: 49 44 33 (ASCII "ID3")
+        // - MPEG frame sync: FF F? (où ? est E ou F pour MPEG-1 Layer 3)
+        const isId3v2 = uint8Array[0] === 0x49 && uint8Array[1] === 0x44 && uint8Array[2] === 0x33
+        const isMpegFrame = uint8Array[0] === 0xFF && (uint8Array[1] & 0xE0) === 0xE0
+        
+        if (!isId3v2 && !isMpegFrame) {
+          console.warn('⚠️ Le blob ne semble pas être un MP3 valide (header invalide). Premiers octets:', 
+            Array.from(uint8Array).map(b => '0x' + b.toString(16).padStart(2, '0')).join(' '))
+          // Ne pas bloquer, mais logger l'avertissement
+        } else {
+          console.log('✅ Header MP3 valide détecté:', isId3v2 ? 'ID3v2' : 'MPEG frame')
+        }
+      } catch (error) {
+        console.warn('⚠️ Erreur lors de la validation du header MP3:', error)
+      }
+      
+      console.log(`📦 Segment MP3 créé: ${mp3Blob.size} octets (${(mp3Blob.size / 1024).toFixed(2)} KB), ${this.mp3Data.length} chunks`)
       
       // Sauvegarder pour l'enregistrement complet
       this.audioChunks.push(mp3Blob)
@@ -425,16 +486,40 @@ export default {
     
     async sendSegmentToTranscription(mp3Blob) {
       try {
+        // Validation finale avant envoi
+        if (!mp3Blob || mp3Blob.size === 0) {
+          throw new Error('Le blob MP3 est vide ou invalide')
+        }
+        
+        if (mp3Blob.size < 100) {
+          throw new Error(`Le fichier MP3 est trop petit (${mp3Blob.size} octets). Minimum requis: 100 octets`)
+        }
+        
+        // Vérifier que le type MIME est correct
+        if (mp3Blob.type !== 'audio/mpeg' && mp3Blob.type !== '') {
+          console.warn(`⚠️ Type MIME inattendu: ${mp3Blob.type}, utilisation de 'audio/mpeg'`)
+        }
+        
         const timestamp = Date.now()
         const segmentNumber = this.segmentCounter.toString().padStart(3, '0') // Format: 001, 002, 003...
         const fileName = `segment_${this.meetingId}_${segmentNumber}_${timestamp}.mp3`
         const audioFile = new File([mp3Blob], fileName, { type: 'audio/mpeg' })
         
-        console.log(`📤 Envoi segment #${this.segmentCounter} audio (MP3) pour transcription:`, fileName, (mp3Blob.size / 1024).toFixed(2), 'KB')
+        // Validation finale du File
+        if (!audioFile || audioFile.size === 0) {
+          throw new Error('Le fichier audio créé est vide ou invalide')
+        }
+        
+        console.log(`📤 Envoi segment #${this.segmentCounter} audio (MP3) pour transcription:`, {
+          fileName: fileName,
+          size: `${(mp3Blob.size / 1024).toFixed(2)} KB`,
+          type: audioFile.type,
+          lastModified: new Date(audioFile.lastModified).toISOString()
+        })
         
         // Envoyer au service de transcription
         await apiService.sendAudioSegment(this.meetingId, audioFile)
-        console.log(`✅ Segment #${this.segmentCounter} envoyé avec succès`)
+        console.log(`✅ Segment #${this.segmentCounter} envoyé avec succès (${(mp3Blob.size / 1024).toFixed(2)} KB)`)
       } catch (error) {
         console.error(`❌ Erreur lors de l'envoi du segment #${this.segmentCounter}:`, error)
         // Ne pas bloquer l'enregistrement si l'envoi échoue
@@ -464,9 +549,10 @@ export default {
         this.isPaused = false
         this.stopTimer()
         
-        // Finaliser le dernier segment
-        if (this.mp3Data.length > 0) {
-          this.sendMp3Segment()
+        // Finaliser le dernier segment - toujours appeler sendMp3Segment pour finaliser l'encodeur
+        // même si mp3Data est vide, il peut y avoir des données dans le buffer de l'encodeur
+        if (this.mp3Encoder) {
+          await this.sendMp3Segment()
         }
         
         // Nettoyer les ressources audio
@@ -495,14 +581,75 @@ export default {
     
     async saveRecording() {
       try {
+        // Vérifier qu'on a des chunks à fusionner
+        if (!this.audioChunks || this.audioChunks.length === 0) {
+          console.warn('⚠️ Aucun chunk audio à sauvegarder')
+          return
+        }
+        
+        // Calculer la taille totale
+        let totalSize = 0
+        for (const chunk of this.audioChunks) {
+          if (chunk && chunk.size) {
+            totalSize += chunk.size
+          }
+        }
+        
+        if (totalSize === 0) {
+          console.warn('⚠️ Taille totale des chunks est 0, impossible de sauvegarder')
+          return
+        }
+        
         // Fusionner tous les segments MP3 en un seul fichier
         const mp3Blob = new Blob(this.audioChunks, { type: 'audio/mpeg' })
+        
+        // Validation du blob
+        if (!mp3Blob || mp3Blob.size === 0) {
+          console.error('❌ Le blob MP3 fusionné est vide ou invalide')
+          return
+        }
+        
+        if (mp3Blob.size < 100) {
+          console.warn(`⚠️ Le fichier MP3 complet est trop petit (${mp3Blob.size} octets), peut être invalide`)
+        }
+        
+        // Vérifier que la taille correspond
+        if (Math.abs(mp3Blob.size - totalSize) > 1) {
+          console.warn(`⚠️ Taille du blob (${mp3Blob.size}) ne correspond pas exactement à la taille calculée (${totalSize})`)
+        }
+        
+        // Valider le header MP3
+        try {
+          const arrayBuffer = await mp3Blob.slice(0, 4).arrayBuffer()
+          const uint8Array = new Uint8Array(arrayBuffer)
+          const isId3v2 = uint8Array[0] === 0x49 && uint8Array[1] === 0x44 && uint8Array[2] === 0x33
+          const isMpegFrame = uint8Array[0] === 0xFF && (uint8Array[1] & 0xE0) === 0xE0
+          
+          if (!isId3v2 && !isMpegFrame) {
+            console.warn('⚠️ Le fichier MP3 complet ne semble pas avoir un header valide')
+          } else {
+            console.log('✅ Header MP3 valide détecté pour le fichier complet:', isId3v2 ? 'ID3v2' : 'MPEG frame')
+          }
+        } catch (error) {
+          console.warn('⚠️ Erreur lors de la validation du header MP3 complet:', error)
+        }
         
         // Créer un fichier MP3
         const fileName = `recording_${this.meetingId}_${Date.now()}.mp3`
         const audioFile = new File([mp3Blob], fileName, { type: 'audio/mpeg' })
         
-        console.log('💾 Sauvegarde enregistrement complet (MP3):', fileName, 'Taille:', (mp3Blob.size / 1024 / 1024).toFixed(2), 'MB')
+        // Validation finale du File
+        if (!audioFile || audioFile.size === 0) {
+          console.error('❌ Le fichier audio créé est vide ou invalide')
+          return
+        }
+        
+        console.log('💾 Sauvegarde enregistrement complet (MP3):', {
+          fileName: fileName,
+          size: `${(mp3Blob.size / 1024 / 1024).toFixed(2)} MB`,
+          chunks: this.audioChunks.length,
+          type: audioFile.type
+        })
         
         // Envoyer le fichier audio complet au service de transcription
         try {
