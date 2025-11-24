@@ -1,0 +1,70 @@
+services:
+  # MySQL Database for Transcription-service
+  mysql-transcription:
+    image: mysql:8.0
+    container_name: mysql-transcription
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: transcriptiondb
+    ports:
+      - "3307:3306"
+    volumes:
+      - mysql_transcription_data:/var/lib/mysql
+    networks:
+      - transcription-network
+    command: 
+      - --innodb-force-recovery=0
+      - --innodb-fast-shutdown=0
+      - --skip-external-locking
+      - --skip-name-resolve
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-proot"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Transcription-service (Quarkus)
+  transcription-service:
+    image: ${TRANSCRIPTION_SERVICE_IMAGE:-ghcr.io/your-username/transcription-service:latest}
+    container_name: transcription-service
+    ports:
+      - "8082:8082"
+    environment:
+      - QUARKUS_HTTP_PORT=8082
+      - QUARKUS_HTTP_HOST=0.0.0.0
+      - QUARKUS_DATASOURCE_JDBC_URL=jdbc:mysql://mysql-transcription:3306/transcriptiondb
+      - QUARKUS_DATASOURCE_PORT=3306
+      - QUARKUS_DATASOURCE_USERNAME=root
+      - QUARKUS_DATASOURCE_PASSWORD=root
+      - QUARKUS_DATASOURCE_DB_KIND=mysql
+      - QUARKUS_HIBERNATE_ORM_DATABASE_GENERATION=update
+      - AI_SERVICE_URL=http://ai-service:8000
+      - QUARKUS_LOG_LEVEL=INFO
+    depends_on:
+      mysql-transcription:
+        condition: service_healthy
+    networks:
+      - transcription-network
+    restart: unless-stopped
+
+  # AI Service (Python FastAPI)
+  ai-service:
+    image: ${AI_SERVICE_IMAGE:-ghcr.io/your-username/ai-service:latest}
+    container_name: ai-service
+    ports:
+      - "8000:8000"
+    environment:
+      - TRANSCRIPTION_SERVICE_URL=http://transcription-service:8082
+    volumes:
+      - ai_reunions_data:/app/Reunions
+    networks:
+      - transcription-network
+    restart: unless-stopped
+
+networks:
+  transcription-network:
+    driver: bridge
+
+volumes:
+  mysql_transcription_data:
+  ai_reunions_data:

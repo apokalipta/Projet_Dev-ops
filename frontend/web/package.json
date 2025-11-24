@@ -1,0 +1,30 @@
+{
+  "name": "transcript-ia",
+  "version": "1.0.0",
+  "description": "Application de transcription de réunion en temps réel",
+  "main": "index.js",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "serve": "vite preview"
+  },
+  "dependencies": {
+    "@ffmpeg/ffmpeg": "^0.12.15",
+    "@ffmpeg/util": "^0.12.2",
+    "lamejs": "^1.2.1",
+    "vue": "^3.3.4"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^4.2.3",
+    "vite": "^4.4.5"
+  },
+  "keywords": [
+    "transcription",
+    "reunion",
+    "vue",
+    "speech-to-text"
+  ],
+  "author": "Votre nom",
+  "license": "MIT"
+}

@@ -1,0 +1,104 @@
+plugins {
+    id 'java'
+    id 'io.quarkus' version '3.15.1' apply false
+    id 'eclipse'
+}
+
+// Configuration du projet
+group = 'com.meeting.microservices'
+version = '1.0.0-SNAPSHOT'
+
+allprojects {
+    repositories {
+        mavenCentral()
+        maven { url "https://maven.quarkiverse.io" }
+    }
+}
+
+subprojects {
+    apply plugin: 'java-library'
+    apply plugin: 'io.quarkus'
+    apply plugin: 'eclipse'
+
+    java {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+        withJavadocJar()
+        withSourcesJar()
+    }
+    
+    tasks.withType(JavaCompile) {
+        options.encoding = 'UTF-8'
+        options.compilerArgs << '-parameters'
+    }
+    
+    tasks.withType(Test) {
+        useJUnitPlatform()
+        systemProperty "file.encoding", "utf-8"
+        systemProperty "java.util.logging.manager", "org.jboss.logmanager.LogManager"
+    }
+    
+    // Configuration Eclipse
+    eclipse {
+        project {
+            natures 'org.eclipse.buildship.core.gradleprojectnature'
+            buildCommand 'org.eclipse.buildship.core.gradleprojectbuilder'
+        }
+        
+        classpath {
+            defaultOutputDir = file('bin/main')
+            downloadSources = true
+            downloadJavadoc = true
+        }
+    }
+    
+    // Configurer l'encodage UTF-8 pour Eclipse
+    tasks.register('eclipseSettings') {
+        doLast {
+            def settingsDir = file('.settings')
+            settingsDir.mkdirs()
+            
+            // Encodage UTF-8
+            def resourcesPrefs = file('.settings/org.eclipse.core.resources.prefs')
+            resourcesPrefs.write('eclipse.preferences.version=1\n')
+            resourcesPrefs.append('encoding/<project>=UTF-8\n')
+            
+            // Configuration Java
+            def jdtPrefs = file('.settings/org.eclipse.jdt.core.prefs')
+            jdtPrefs.write('eclipse.preferences.version=1\n')
+            jdtPrefs.append('org.eclipse.jdt.core.compiler.codegen.targetPlatform=17\n')
+            jdtPrefs.append('org.eclipse.jdt.core.compiler.compliance=17\n')
+            jdtPrefs.append('org.eclipse.jdt.core.compiler.source=17\n')
+        }
+    }
+    
+    tasks.eclipse.dependsOn eclipseSettings
+    
+    dependencies {
+        // Quarkus BOM
+        implementation platform('io.quarkus.platform:quarkus-bom:3.15.1')
+        
+        // Quarkus essentiels
+        implementation 'io.quarkus:quarkus-arc'
+        implementation 'io.quarkus:quarkus-resteasy-reactive'
+        implementation 'io.quarkus:quarkus-resteasy-reactive-jackson'
+        implementation 'io.quarkus:quarkus-hibernate-orm'
+        implementation 'io.quarkus:quarkus-hibernate-orm-panache'
+        implementation 'io.quarkus:quarkus-jdbc-mysql'
+        implementation 'io.quarkus:quarkus-hibernate-validator'
+        implementation 'io.quarkus:quarkus-config-yaml'
+        
+        // Monitoring
+        implementation 'io.quarkus:quarkus-smallrye-health'
+        implementation 'io.quarkus:quarkus-micrometer-registry-prometheus'
+        implementation 'io.quarkus:quarkus-smallrye-openapi'
+        
+        // Logging
+        implementation 'io.quarkus:quarkus-logging-json'
+        
+        // Tests
+        testImplementation 'io.quarkus:quarkus-junit5'
+        testImplementation 'io.rest-assured:rest-assured'
+        testImplementation 'io.quarkus:quarkus-test-h2'
+    }
+}

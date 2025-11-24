@@ -1,0 +1,13 @@
+# Répertoires cache Gradle
+.gradle/
+
+# Répertoires de sortie générés par Gradle ou Quarkus
+build/
+**/build/
+**/bin/
+
+# Journaux et fichiers temporaires générés lors des crashs JVM ou exécutions locales
+*.log
+hs_err_pid*.log
+replay_pid*.log
+*.tmp
